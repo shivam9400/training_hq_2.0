@@ -1,0 +1,1008 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Training HQ</title>
+<style>
+:root{
+  --bg:#070d1b; --bg2:#0c1530; --card:#111a31; --card2:#17223f; --line:rgba(255,255,255,.08);
+  --text:#e9efff; --muted:#93a3c7; --accent:#ff8a3d; --accent2:#2dd4bf; --good:#34d399; --warn:#fbbf24;
+  --bad:#f87171; --blue:#60a5fa; --purple:#a78bfa; --gold:#fcd34d; --radius:18px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.45}
+body{background:radial-gradient(1200px 600px at 10% -10%,#16294f 0%,transparent 60%),radial-gradient(900px 500px at 100% 0%,#2a1740 0%,transparent 55%),var(--bg);min-height:100vh}
+.wrap{max-width:1080px;margin:0 auto;padding:14px 14px 60px}
+.top{display:flex;align-items:center;gap:10px;padding:6px 2px 14px}
+.brand{font-weight:800;font-size:18px;letter-spacing:.2px}
+.sync{margin-left:auto;font-size:12px;color:var(--muted);text-align:right}
+button{font:inherit;color:inherit;cursor:pointer}
+.btn{background:linear-gradient(135deg,var(--accent),#ffb15c);color:#1b1206;border:0;border-radius:12px;padding:9px 14px;font-weight:700;font-size:13px}
+.btn:disabled{opacity:.6;cursor:wait}
+.btn.ghost{background:rgba(255,255,255,.07);color:var(--text);border:1px solid var(--line)}
+.btn.small{padding:6px 10px;font-size:12px;border-radius:10px}
+.banner{border-radius:14px;padding:12px 14px;margin-bottom:12px;border:1px solid var(--line);background:var(--card2)}
+.banner.warn{border-color:rgba(251,191,36,.4);background:rgba(251,191,36,.08)}
+.banner.bad{border-color:rgba(248,113,113,.45);background:rgba(248,113,113,.1)}
+.hero{display:flex;gap:18px;align-items:center;justify-content:space-between;border-radius:24px;padding:22px;margin-bottom:16px;
+  background:linear-gradient(135deg,#17445a 0%,#10294a 55%,#2b1a47 100%);border:1px solid var(--line);position:relative;overflow:hidden}
+.hero:after{content:"";position:absolute;right:-60px;top:-60px;width:260px;height:260px;border-radius:50%;background:radial-gradient(circle,rgba(255,138,61,.28),transparent 65%)}
+.hero-text{position:relative;z-index:1;flex:1;min-width:0}
+.eyebrow{color:#b9c8ec;font-size:13px;letter-spacing:.4px;text-transform:uppercase}
+.hero h1{margin:4px 0 8px;font-size:26px;line-height:1.15}
+.hero p{margin:0 0 12px;color:#dbe6ff;font-size:16px;max-width:560px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:600;background:rgba(255,255,255,.1);border:1px solid var(--line);color:var(--text)}
+.chip.good{background:rgba(52,211,153,.15);color:#8ff0c8;border-color:rgba(52,211,153,.35)}
+.chip.warn{background:rgba(251,191,36,.14);color:#ffe08a;border-color:rgba(251,191,36,.35)}
+.chip.bad{background:rgba(248,113,113,.15);color:#ffb3b3;border-color:rgba(248,113,113,.4)}
+.chip.accent{background:rgba(255,138,61,.16);color:#ffc08f;border-color:rgba(255,138,61,.4)}
+.chip.blue{background:rgba(96,165,250,.15);color:#a9ceff;border-color:rgba(96,165,250,.35)}
+.chip.muted{color:var(--muted)}
+.hero-ring{position:relative;z-index:1;flex:none}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.card{background:linear-gradient(180deg,var(--card2),var(--card));border:1px solid var(--line);border-radius:var(--radius);padding:16px;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+.span2{grid-column:span 2}
+.card h2{margin:0;font-size:13px;text-transform:uppercase;letter-spacing:.9px;color:var(--muted);font-weight:700}
+.card-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:8px}
+.date{color:var(--muted);font-size:13px}
+.today-title{font-size:22px;font-weight:800;margin:6px 0 8px;line-height:1.2}
+.meta{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+.details{margin:0 0 12px;color:#cfd9f4;white-space:pre-wrap}
+.actual{background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:12px;font-size:14px}
+.btnrow{display:flex;flex-wrap:wrap;gap:8px}
+.typebadge{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;padding:3px 10px;border-radius:999px;color:#101828;background:var(--c,#64748b)}
+.ready{border-radius:14px;padding:14px;margin-bottom:10px;border:1px solid var(--line)}
+.ready h3{margin:0 0 4px;font-size:18px}
+.ready p{margin:0;color:#d4def7}
+.ready.GO{background:rgba(52,211,153,.1);border-color:rgba(52,211,153,.4)}
+.ready.EASY,.ready.WATCH{background:rgba(251,191,36,.1);border-color:rgba(251,191,36,.4)}
+.ready.REST,.ready.STOP{background:rgba(248,113,113,.12);border-color:rgba(248,113,113,.5)}
+.ready.NO_DATA{background:rgba(255,255,255,.04)}
+.muted{color:var(--muted)}
+.small{font-size:12px}
+.form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.form label{display:block;font-size:12px;color:var(--muted);margin-bottom:3px}
+.form input,.form select,.form textarea{width:100%;background:#0b1328;border:1px solid var(--line);border-radius:10px;color:var(--text);padding:9px 10px;font:inherit}
+.form textarea{min-height:64px;resize:vertical}
+.form .full{grid-column:span 2}
+.week{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px}
+.tile{background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:14px;padding:8px 6px;text-align:center;cursor:pointer;min-height:112px;display:flex;flex-direction:column;gap:3px;align-items:center}
+.tile .dw{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.6px}
+.tile .dn{font-size:16px;font-weight:800}
+.tile .ic{font-size:18px}
+.tile .nm{font-size:11px;line-height:1.2;color:#cfd9f4;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.tile .mn{font-size:11px;color:var(--muted)}
+.tile.today{border-color:var(--accent);box-shadow:0 0 0 2px rgba(255,138,61,.35) inset}
+.tile.good{background:rgba(52,211,153,.12)}
+.tile.bad{background:rgba(248,113,113,.1)}
+.tile.warn{background:rgba(251,191,36,.1)}
+.stats{display:grid;grid-template-columns:150px repeat(3,minmax(0,1fr));gap:12px;align-items:center}
+.stat{background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:14px;padding:12px}
+.stat b{display:block;font-size:22px;line-height:1.1}
+.stat span{color:var(--muted);font-size:12px}
+.statgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.list{display:flex;flex-direction:column;gap:8px}
+.item{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.04);border:1px solid var(--line)}
+.item .l{flex:1;min-width:0}
+.item .t{font-weight:700}
+.item.warn{background:rgba(251,191,36,.08);border-color:rgba(251,191,36,.3)}
+.race .big{font-size:26px;font-weight:800;color:var(--accent);min-width:60px;text-align:center;line-height:1}
+.race .big small{display:block;font-size:11px;color:var(--muted);font-weight:600}
+.map{display:flex;flex-direction:column;gap:5px}
+.mrow{display:flex;align-items:center;gap:8px}
+.mlab{width:84px;flex:none;font-size:11px;color:var(--muted)}
+.mt{flex:1;min-width:26px;max-width:120px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;cursor:pointer;border:1px solid rgba(255,255,255,.08)}
+.mt.today{outline:2px solid var(--accent);outline-offset:1px}
+.legend{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px;font-size:12px;color:var(--muted)}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:4px;margin-right:5px;vertical-align:-2px}
+.badges{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.bd{border-radius:14px;padding:12px;text-align:center;background:rgba(255,255,255,.04);border:1px solid var(--line)}
+.bd .ic{font-size:26px;display:block}
+.bd b{display:block;font-size:13px;margin-top:4px}
+.bd span{font-size:11px;color:var(--muted)}
+.bd.off{opacity:.38;filter:grayscale(1)}
+.bd.on{background:linear-gradient(180deg,rgba(252,211,77,.14),rgba(255,138,61,.08));border-color:rgba(252,211,77,.4)}
+.quote{font-size:20px;font-weight:700;line-height:1.3;margin:6px 0 12px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+td,th{padding:7px 6px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+th{color:var(--muted);font-weight:600;font-size:12px}
+.modal{position:fixed;inset:0;background:rgba(3,6,14,.7);display:none;align-items:flex-end;justify-content:center;z-index:50;padding:0}
+.modal.show{display:flex}
+.sheet{background:var(--card2);border:1px solid var(--line);border-radius:22px 22px 0 0;width:100%;max-width:720px;max-height:88vh;overflow:auto;padding:18px}
+@media(min-width:720px){.modal{align-items:center;padding:20px}.sheet{border-radius:22px}}
+.sheet h3{margin:0 0 6px;font-size:20px}
+.sheet textarea{width:100%;min-height:260px;background:#0b1328;color:var(--text);border:1px solid var(--line);border-radius:12px;padding:10px;font:12px/1.4 ui-monospace,Menlo,Consolas,monospace}
+svg text{font-family:inherit}
+.steps{margin:8px 0 0;padding-left:22px;color:#cfd9f4}.steps li{margin:0 0 10px}.steps b{color:#fff}
+.hint{color:var(--muted);font-size:14px;margin:0}
+.kebab.adj{width:auto;height:34px;padding:0 14px;font-size:13px;font-weight:700;white-space:nowrap}
+.mh{font-size:11px;text-transform:uppercase;letter-spacing:.9px;color:var(--muted);padding:8px 10px 2px}
+.sub2 a.stravalink{color:#fc4c02;border:1px solid rgba(252,76,2,.55);background:rgba(252,76,2,.12);padding:4px 12px;border-radius:999px;font-weight:700;text-decoration:none}
+.sub2 a.stravalink:hover{background:rgba(252,76,2,.22)}
+.dotlive{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;background:#64748b;vertical-align:1px}
+.dotlive.on{background:#34d399}.dotlive.off{background:#fbbf24}
+
+.kw{position:relative;margin-left:auto;flex:none}
+.kebab{width:36px;height:36px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.07);font-size:20px;line-height:1;color:var(--text)}
+.menu{display:none;position:absolute;right:0;top:40px;z-index:25;min-width:220px;background:#1b2747;border:1px solid rgba(255,255,255,.14);border-radius:12px;padding:6px;box-shadow:0 14px 34px rgba(0,0,0,.5)}
+.menu.show{display:block}
+.menu button{display:block;width:100%;text-align:left;background:transparent;border:0;border-radius:8px;padding:10px;font-size:14px;color:var(--text)}
+.menu button:hover{background:rgba(255,255,255,.08)}
+.shead{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.banner2{display:flex;align-items:center;gap:14px;border-radius:16px;padding:14px;margin-bottom:12px}
+.banner2.good{background:linear-gradient(135deg,rgba(52,211,153,.28),rgba(45,212,191,.1));border:1px solid rgba(52,211,153,.5)}
+.banner2.warn{background:linear-gradient(135deg,rgba(251,191,36,.25),rgba(255,138,61,.1));border:1px solid rgba(251,191,36,.5)}
+.banner2.bad{background:rgba(248,113,113,.12);border:1px solid rgba(248,113,113,.4)}
+.check{width:52px;height:52px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:800;color:#06281c;background:linear-gradient(135deg,#34d399,#6ee7b7);box-shadow:0 0 0 6px rgba(52,211,153,.18)}
+.banner2.warn .check{background:linear-gradient(135deg,#fbbf24,#fcd34d);color:#3a2a00;box-shadow:0 0 0 6px rgba(251,191,36,.18)}
+.banner2.bad .check{background:linear-gradient(135deg,#f87171,#fca5a5);color:#3b0a0a;box-shadow:0 0 0 6px rgba(248,113,113,.18)}
+.banner2 .bt{flex:1;min-width:0}
+.bl{font-size:12px;text-transform:uppercase;letter-spacing:.9px;color:#b8f5dc;font-weight:700}
+.banner2.warn .bl{color:#ffe08a}.banner2.bad .bl{color:#ffb3b3}
+.bn{font-size:20px;font-weight:800;line-height:1.2}
+.prog{display:flex;align-items:center;gap:10px;margin-bottom:12px;font-size:13px;color:var(--muted)}
+.bar{flex:1;height:10px;border-radius:999px;background:rgba(255,255,255,.1);overflow:hidden}
+.bar i{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,#34d399,#2dd4bf)}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(105px,1fr));gap:10px;margin-bottom:10px}
+.stile{background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:14px;padding:12px 8px;text-align:center}
+.stile b{display:block;font-size:22px;line-height:1.1}.stile span{font-size:12px;color:var(--muted)}
+.sub2{display:flex;flex-wrap:wrap;gap:12px;align-items:center;color:var(--muted);font-size:13px;margin-bottom:10px}
+.sub2 a{color:var(--accent2);font-weight:700;text-decoration:none}
+.insight{background:rgba(45,212,191,.08);border:1px solid rgba(45,212,191,.3);border-radius:12px;padding:10px 12px;margin-bottom:10px;font-size:14px}
+.cheer{font-weight:700;color:#ffd9b8;margin:6px 0 10px}
+.sumline{color:#c5d2f2;margin:0 0 8px;font-size:15px}
+.details.clamp{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-bottom:4px}
+.details.clamp.open{display:block;overflow:visible}
+a.rd{color:var(--accent2);font-size:13px;cursor:pointer;display:none;margin-bottom:10px}
+.callout{background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.45);border-radius:12px;padding:10px 12px;margin:0 0 10px;font-size:14px;color:#ffeaa8}
+details.planned{margin-top:4px;font-size:13px;color:var(--muted)}details.planned summary{cursor:pointer}details.planned p{margin:6px 0 0;color:#cfd9f4}
+.nextup{margin-top:14px;padding-top:12px;border-top:1px dashed var(--line);color:var(--muted);font-size:14px}.nextup b{color:var(--text)}
+.st{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;margin-top:3px;border:1px solid var(--line);color:var(--muted)}
+.st.good{background:rgba(52,211,153,.9);color:#06281c;border:0}.st.warn{background:rgba(251,191,36,.9);color:#3a2a00;border:0}
+.st.bad{background:rgba(248,113,113,.9);color:#3b0a0a;border:0}.st.accent{background:rgba(255,138,61,.9);color:#2a1200;border:0}
+details.moref{margin:2px 0 10px}details.moref summary{cursor:pointer;color:var(--accent2);font-size:13px;margin:4px 0 8px}
+.restcard{color:#c5d2f2}
+
+.sess{padding:12px 0;border-top:1px solid var(--line)}
+.sess:first-of-type{border-top:0;padding-top:0}
+.dayacts{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;padding-top:12px;border-top:1px dashed var(--line)}
+.tile .nm.sub{color:#a9b8de;font-size:10px}
+.mt .plus{font-size:10px;font-weight:800;color:#fff}
+.sheet select,.sheet input,.sheet textarea{width:100%;background:#0b1328;border:1px solid var(--line);border-radius:10px;color:var(--text);padding:9px 10px;font:inherit}
+
+.brand{display:flex;align-items:baseline;gap:8px;white-space:nowrap}
+.brand small{color:var(--muted);font-weight:600;font-size:12px}
+.tabs{position:sticky;top:0;z-index:30;display:flex;gap:6px;padding:8px 0 10px;margin:0 0 12px;background:linear-gradient(180deg,rgba(7,13,27,.97),rgba(7,13,27,.85));backdrop-filter:blur(8px)}
+.tabs button{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:10px 8px;border-radius:12px;border:1px solid var(--line);background:rgba(255,255,255,.04);color:var(--muted);font-weight:700;font-size:13px}
+.tabs button.on{background:linear-gradient(135deg,var(--accent),#ffb15c);color:#1b1206;border-color:transparent}
+.pane{display:none}.pane.on{display:block}
+.col{display:flex;flex-direction:column;gap:16px;min-width:0}
+.rail{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.ringcap{text-align:center;font-size:12px;font-weight:700;color:#ffd9b8;margin-top:4px;max-width:160px}
+.hero-ring{text-align:center}
+.wk{display:flex;gap:12px;align-items:center}
+.wk .n{width:44px;flex:none;text-align:center;font-weight:800;color:var(--accent)}
+.wk .r{flex:none;text-align:right;font-size:12px;color:var(--muted)}
+.item.now{border-color:var(--accent);box-shadow:0 0 0 1px rgba(255,138,61,.4) inset}
+.ver{margin-top:18px;text-align:center;color:#5b6b92;font-size:11px}
+@media(max-width:720px){
+  .tabs{position:fixed;left:0;right:0;bottom:0;top:auto;margin:0;padding:6px 8px calc(8px + env(safe-area-inset-bottom));background:rgba(9,15,31,.97);border-top:1px solid var(--line);gap:2px}
+  .tabs button{flex-direction:column;gap:1px;padding:6px 2px;font-size:10px;border:0;background:transparent;border-radius:10px}
+  .tabs button .ti{font-size:20px;line-height:1.1}
+  .tabs button.on{background:rgba(255,138,61,.18);color:#ffb06b}
+  .wrap{padding-bottom:100px}
+  .brand small{display:none}
+}
+
+footer{margin-top:22px;text-align:center;color:var(--muted);font-size:12px}
+@media(max-width:860px){
+  .grid{grid-template-columns:minmax(0,1fr)}.span2{grid-column:span 1}
+  .hero{flex-direction:column-reverse;align-items:flex-start;padding:18px}.hero h1{font-size:22px}
+  .hero-ring{display:flex;align-items:center;gap:14px;text-align:left}.hero-ring svg{width:108px;height:108px}.ringcap{margin-top:0;font-size:14px;max-width:none}
+  .stats{grid-template-columns:1fr 1fr}.stats .ringbox{grid-column:span 2;display:flex;justify-content:center}
+}
+@media(max-width:520px){
+  .brand{font-size:15px;white-space:nowrap}.sync{font-size:11px}.tile .chip{font-size:9px!important;padding:1px 4px!important;white-space:nowrap}
+  .week{gap:5px}.tile{padding:6px 3px;min-height:104px}.tile .nm{font-size:10px}
+  .form{grid-template-columns:1fr 1fr}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">🏃 <span id="appTitle">Training HQ</span><small id="appSub"></small></div>
+    <div class="sync" id="syncInfo">Loading…</div>
+    <button class="btn small" id="btnSync" onclick="syncNow()">↻ Sync</button>
+  </header>
+  <nav class="tabs" id="tabs">
+    <button data-tab="today" class="on" onclick="showTab('today')"><span class="ti">🏠</span><span class="tl">Today</span></button>
+    <button data-tab="progress" onclick="showTab('progress')"><span class="ti">📈</span><span class="tl">Progress</span></button>
+    <button data-tab="plan" onclick="showTab('plan')"><span class="ti">🗺️</span><span class="tl">Plan</span></button>
+    <button data-tab="activity" onclick="showTab('activity')"><span class="ti">📡</span><span class="tl">Activity</span></button>
+    <button data-tab="goals" onclick="showTab('goals')"><span class="ti">🏆</span><span class="tl">Goals</span></button>
+  </nav>
+  <div id="banner"></div>
+  <main>
+    <div class="pane on" id="pane-today">
+      <section class="hero" id="hero"></section>
+      <div class="grid">
+        <section class="card span2" id="todayCard"></section>
+        <div class="col"><section class="card" id="readyCard"></section><section class="card" id="flagsCard"></section></div>
+        <section class="card" id="checkinCard"></section>
+        <section class="card span2" id="weekCard"></section>
+      </div>
+    </div>
+    <div class="pane" id="pane-progress">
+      <div class="grid">
+        <section class="card span2" id="reviewCard"></section>
+        <section class="card span2" id="statsCard"></section>
+        <section class="card span2" id="loadCard"></section>
+        <section class="card span2" id="effCard"></section>
+        <section class="card span2" id="testsCard"></section>
+      </div>
+    </div>
+    <div class="pane" id="pane-plan">
+      <div class="grid">
+        <section class="card span2" id="racesCard"></section>
+        <section class="card span2" id="mapCard"></section>
+        <section class="card span2" id="weeksCard"></section>
+      </div>
+    </div>
+    <div class="pane" id="pane-activity">
+      <div class="grid"><section class="card span2" id="recentCard"></section></div>
+    </div>
+    <div class="pane" id="pane-goals">
+      <div class="grid">
+        <section class="card span2" id="quoteCard"></section>
+        <section class="card span2" id="goalsCard"></section>
+        <section class="card span2" id="badgesCard"></section>
+      </div>
+    </div>
+  </main>
+  <div class="ver">v6</div>
+</div>
+<div class="modal" id="modal" onclick="if(event.target===this)closeModal()"><div class="sheet" id="sheet"></div></div>
+
+<script>
+window.onerror = function(msg, src, line){
+  var b = document.getElementById('banner');
+  if (b) b.innerHTML = '<div class="banner bad"><b>Page error:</b> ' + String(msg).replace(/</g, '&lt;') + ' (line ' + line + '). Please send this message to Claude.</div>';
+  var s = document.getElementById('syncInfo'); if (s) s.textContent = 'Error';
+};
+</script>
+<script>
+var DATA = null;
+var QUOTES = [
+  "Easy days make hard days possible.",
+  "The long run is where the marathon is built.",
+  "Progress is quiet: same pace, lower heart rate.",
+  "You do not need a perfect week, you need a consistent one.",
+  "Start slow so you can finish strong.",
+  "Every kilometre logged is a deposit for race day.",
+  "Rest is part of the plan, not a break from it.",
+  "A bad run still counts. Showing up is the habit.",
+  "Trust the training. Respect the taper.",
+  "Patience beats pace in the first half of every race.",
+  "Small steps, every week, add up to 42.2 km.",
+  "Boring training makes exciting race days.",
+  "The run you skip when you feel fine is the one you regret.",
+  "You are not behind. You are building.",
+  "Strong legs at km 35 are made on Thursdays."
+];
+var MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+var DOW = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+var uid = 0;
+
+function $(id){ return document.getElementById(id); }
+function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function isoParts(iso){ var p = String(iso).split('-'); return { y:+p[0], m:+p[1], d:+p[2] }; }
+function fmtD(iso){ var p = isoParts(iso); return p.d + ' ' + MON[p.m-1]; }
+function dowOf(iso){ var p = isoParts(iso); return DOW[new Date(Date.UTC(p.y, p.m-1, p.d)).getUTCDay()]; }
+function fmtDT(iso){ return dowOf(iso) + ' ' + fmtD(iso); }
+function dayNum(iso){ return isoParts(iso).d; }
+function typeColor(t){ return ({Run:'#60a5fa', Strength:'#a78bfa', Race:'#fcd34d', Rest:'#64748b'})[t] || '#64748b'; }
+function typeIcon(t){ return ({Run:'🏃', Strength:'💪', Race:'🏁', Rest:'🌿'})[t] || ''; }
+function fmtMin(m){ if (m == null || m === '') return '—'; m = Math.round(m); var h = Math.floor(m/60); return h ? (h + 'h ' + (m%60 < 10 ? '0' : '') + (m%60) + 'm') : (m + ' min'); }
+function shortRace(n){ return String(n || 'the race').replace(/\(provisional\)/i, '').replace(/^(Tata Steel|Tata|Indian)\s+/i, '').trim(); }
+
+function statusMeta(p, today){
+  var st = p.status;
+  if (st === 'Done') return { txt:'✓ Done', cls:'good' };
+  if (st === 'Partial') return { txt:'½ Partial', cls:'warn' };
+  if (st === 'Short') return { txt:'Short', cls:'warn' };
+  if (st === 'Missed') return { txt:'Missed', cls:'bad' };
+  if (st === 'Skipped') return { txt:'Skipped', cls:'bad' };
+  if (st === 'Pending') return { txt:'Pending', cls:'accent' };
+  if (st === 'Not logged') return { txt:'Not logged', cls:'muted' };
+  if (st === 'Extra run') return { txt:'Extra run', cls:'blue' };
+  if (p.type === 'Rest') return { txt:'Rest', cls:'muted' };
+  return { txt: p.iso > today ? 'Upcoming' : '—', cls:'muted' };
+}
+
+/* ---------- SVG helpers ---------- */
+function ringSvg(pct, size, big, small){
+  uid++;
+  var r = size/2 - 12, c = 2*Math.PI*r, off = c*(1 - Math.max(0, Math.min(1, pct))), cx = size/2;
+  return '<svg viewBox="0 0 '+size+' '+size+'" width="'+size+'" height="'+size+'" role="img">' +
+    '<defs><linearGradient id="rg'+uid+'" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff8a3d"/><stop offset="1" stop-color="#ffd166"/></linearGradient></defs>' +
+    '<circle cx="'+cx+'" cy="'+cx+'" r="'+r+'" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="10"/>' +
+    '<circle cx="'+cx+'" cy="'+cx+'" r="'+r+'" fill="none" stroke="url(#rg'+uid+')" stroke-width="10" stroke-linecap="round" stroke-dasharray="'+c.toFixed(1)+'" stroke-dashoffset="'+off.toFixed(1)+'" transform="rotate(-90 '+cx+' '+cx+')"/>' +
+    '<text x="'+cx+'" y="'+(cx+4)+'" text-anchor="middle" font-size="'+(size*0.26)+'" font-weight="800" fill="#fff">'+esc(big)+'</text>' +
+    '<text x="'+cx+'" y="'+(cx+size*0.17)+'" text-anchor="middle" font-size="'+(size*0.085)+'" fill="#b9c8ec">'+esc(small)+'</text></svg>';
+}
+
+function barChart(weeks, curWk){
+  var W = 720, H = 250, L = 38, R = 8, T = 14, B = 30;
+  var iw = W - L - R, ih = H - T - B, n = weeks.length || 1, band = iw / n;
+  var maxV = 0; weeks.forEach(function(w){ maxV = Math.max(maxV, w.pMin, w.aMin); });
+  var step = maxV > 300 ? 100 : 50; var top = Math.max(step, Math.ceil(maxV / step) * step);
+  var s = '<svg viewBox="0 0 '+W+' '+H+'" width="100%" role="img" aria-label="Weekly run minutes, plan versus actual">';
+  for (var v = 0; v <= top; v += step){
+    var y = T + ih - ih * v / top;
+    s += '<line x1="'+L+'" x2="'+(W-R)+'" y1="'+y+'" y2="'+y+'" stroke="rgba(255,255,255,.08)"/><text x="'+(L-6)+'" y="'+(y+4)+'" text-anchor="end" font-size="10" fill="#93a3c7">'+v+'</text>';
+  }
+  weeks.forEach(function(w, i){
+    var x0 = L + i*band, bw = band*0.34;
+    var hp = ih * w.pMin / top, ha = ih * w.aMin / top;
+    if (w.wk === curWk) s += '<rect x="'+x0+'" y="'+T+'" width="'+band+'" height="'+ih+'" fill="rgba(255,138,61,.08)" rx="6"/>';
+    s += '<rect x="'+(x0+band*0.12)+'" y="'+(T+ih-hp)+'" width="'+bw+'" height="'+hp+'" rx="3" fill="rgba(147,163,199,.35)"><title>Week '+w.wk+' plan: '+w.pMin+' min</title></rect>';
+    s += '<rect x="'+(x0+band*0.12+bw+2)+'" y="'+(T+ih-ha)+'" width="'+bw+'" height="'+ha+'" rx="3" fill="#ff8a3d"><title>Week '+w.wk+' actual: '+w.aMin+' min, '+w.aKm+' km</title></rect>';
+    s += '<text x="'+(x0+band/2)+'" y="'+(H-10)+'" text-anchor="middle" font-size="10" fill="'+(w.wk === curWk ? '#ffb06b' : '#93a3c7')+'">'+w.wk+'</text>';
+  });
+  s += '</svg>';
+  return s;
+}
+
+function lineChart(pts){
+  var W = 720, H = 230, L = 40, R = 14, T = 16, B = 32, iw = W-L-R, ih = H-T-B;
+  var mn = Infinity, mx = -Infinity; pts.forEach(function(p){ mn = Math.min(mn, p.eff); mx = Math.max(mx, p.eff); });
+  var pad = Math.max(1, (mx - mn) * 0.25); mn = Math.floor(mn - pad); mx = Math.ceil(mx + pad);
+  function X(i){ return L + (pts.length === 1 ? iw/2 : iw * i / (pts.length - 1)); }
+  function Y(v){ return T + ih - ih * (v - mn) / (mx - mn || 1); }
+  var s = '<svg viewBox="0 0 '+W+' '+H+'" width="100%" role="img" aria-label="Easy-run efficiency over time">';
+  for (var g = 0; g <= 4; g++){
+    var v = mn + (mx - mn) * g / 4, y = Y(v);
+    s += '<line x1="'+L+'" x2="'+(W-R)+'" y1="'+y+'" y2="'+y+'" stroke="rgba(255,255,255,.08)"/><text x="'+(L-6)+'" y="'+(y+4)+'" text-anchor="end" font-size="10" fill="#93a3c7">'+v.toFixed(0)+'</text>';
+  }
+  var d = pts.map(function(p, i){ return (i ? 'L' : 'M') + X(i).toFixed(1) + ' ' + Y(p.eff).toFixed(1); }).join(' ');
+  s += '<path d="'+d+'" fill="none" stroke="#2dd4bf" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>';
+  pts.forEach(function(p, i){
+    s += '<circle cx="'+X(i)+'" cy="'+Y(p.eff)+'" r="5" fill="#0b1328" stroke="#2dd4bf" stroke-width="3"><title>'+esc(fmtD(p.iso))+': efficiency '+p.eff+' · pace '+esc(p.pace)+'/km at HR '+p.hr+'</title></circle>';
+    if (pts.length <= 12 || i % Math.ceil(pts.length / 10) === 0) s += '<text x="'+X(i)+'" y="'+(H-10)+'" text-anchor="middle" font-size="10" fill="#93a3c7">'+esc(fmtD(p.iso))+'</text>';
+  });
+  s += '</svg>';
+  return s;
+}
+
+/* ---------- render ---------- */
+function render(d){
+  DATA = d;
+  window.__loadedAt = Date.now();
+  renderSyncInfo(d);
+  if (d.appTitle){ $('appTitle').textContent = d.appTitle; document.title = d.appTitle; }
+  if (d.appSub){ $('appSub').textContent = d.appSub; }
+  var useS = d.now.useStrava !== false, b = '';
+  if (useS && !d.now.connected && d.plan.length > 0) b = '<div class="banner warn"><b>Strava is not connected yet.</b> In the Google Sheet, use <b>Training HQ → Connect Strava</b>. Until then you can still log check-ins and mark sessions done.</div>';
+  if (useS && d.now.connected && d.now.autoSync === false) b += '<div class="banner warn"><b>Auto-sync is off.</b> Strava only updates when you press Sync or open this page. <button class="btn small" style="margin-left:8px" onclick="enableAuto()">Turn on auto-sync</button></div>';
+  if (useS && d.now.syncError) b += '<div class="banner bad"><b>The last automatic sync failed.</b> ' + esc(d.now.syncError) + '<br><span class="muted small">Press Sync to retry. If it keeps failing, reconnect Strava from the Sheet menu (Connect Strava, steps A and B). If your Strava subscription has ended, set “Use Strava sync” to No in the Settings tab.</span></div>';
+  $('banner').innerHTML = b;
+  if (d.plan.length === 0){ renderEmpty(d); return; }
+  resetEmpty();
+  renderHero(d); renderToday(d); renderReady(d); renderFlags(d); renderCheckin(d); renderWeek(d);
+  renderReview(d); renderStats(d); renderLoad(d); renderEff(d); renderTests(d);
+  renderRaces(d); renderMap(d); renderWeeks(d); renderRecent(d); renderQuote(d); renderGoals(d); renderBadges(d);
+  fixClamps();
+}
+
+var CARD_IDS = ['readyCard','flagsCard','checkinCard','weekCard','reviewCard','statsCard','loadCard','effCard','testsCard','racesCard','mapCard','weeksCard','recentCard','quoteCard','goalsCard','badgesCard'];
+function resetEmpty(){ $('hero').style.display = ''; CARD_IDS.forEach(function(id){ $(id).style.display = ''; }); }
+function renderEmpty(d){
+  $('hero').style.display = 'none';
+  CARD_IDS.forEach(function(id){ $(id).style.display = 'none'; });
+  var useS = d.now.useStrava !== false;
+  $('todayCard').innerHTML = '<div class="card-head"><h2>Welcome' + (d.name ? ', ' + esc(d.name) : '') + '</h2></div>' +
+    '<p style="margin:0 0 6px;font-size:17px;font-weight:700">Your dashboard is ready. It just needs a plan.</p>' +
+    '<ol class="steps"><li>Open the Google Sheet and fill in the <b>Settings</b> tab (your name, time zone and baselines).</li>' +
+    '<li>Paste your plan into the <b>Plan input</b> tab. The instructions are on the right of that tab, and your setup guide has a prompt that makes any AI write the plan for you.</li>' +
+    '<li>In the Sheet menu choose <b>Training HQ → Build plan from “Plan input”</b>, then reload this page.</li>' +
+    (useS ? '<li>Optional: connect Strava for automatic logging (menu items 2 to 5). Without it you can still tap <b>Adjust → Mark done</b>.</li>' : '<li>Strava sync is switched off, so you will log sessions by hand with <b>Adjust → Mark done</b>.</li>') + '</ol>';
+}
+
+function dnum(iso){ var p = isoParts(iso); return Math.round(Date.UTC(p.y, p.m-1, p.d) / 86400000); }
+function pad2(n){ return (n < 10 ? '0' : '') + n; }
+function addDays(iso, n){ var x = new Date((dnum(iso) + n) * 86400000); return x.getUTCFullYear() + '-' + pad2(x.getUTCMonth()+1) + '-' + pad2(x.getUTCDate()); }
+
+function greetingText(d){
+  var hr = new Date().getHours(), name = d.name || '';
+  var raceToday = (d.todayRows || []).some(function(r){ return r.type === 'Race'; });
+  var tomorrow = addDays(d.now.today, 1), raceTomorrow = d.plan.some(function(p){ return p.iso === tomorrow && p.type === 'Race'; });
+  var g;
+  if (raceToday) g = '🏁 Race day';
+  else if (raceTomorrow) g = 'Race tomorrow';
+  else if (hr >= 21 || hr < 4) g = 'Rest well';
+  else if (hr < 6) g = 'Early start';
+  else if (hr < 12) g = 'Good morning';
+  else if (hr < 17) g = 'Good afternoon';
+  else g = 'Good evening';
+  return g + ', ' + name;
+}
+function updateGreeting(){ if (!DATA) return; var el = document.querySelector('#hero .eyebrow'); if (el) el.textContent = greetingText(DATA); }
+setInterval(updateGreeting, 300000);
+
+function renderHero(d){
+  var h = d.hero, today = d.now.today;
+  var title = h.wk > 0 && h.wk < 99 ? 'Week ' + h.wk + ' of ' + h.totalWeeks + ' · ' + esc(h.phase) : esc(h.phase);
+  var chips = '';
+  if (h.focus) chips += '<span class="chip accent">🎯 ' + esc(h.focus) + '</span>';
+  chips += '<span class="chip">📅 Day ' + h.dayOfPlan + ' of ' + h.totalDays + '</span>';
+  if (d.stats.streak > 0) chips += '<span class="chip good">🔥 ' + d.stats.streak + '-run streak</span>';
+  var up = d.races.filter(function(r){ return !r.past; });
+  var next = up[0], ring, cap = '';
+  if (next){
+    var prev = d.planStart; d.races.forEach(function(r){ if (r.past && r.iso > prev) prev = r.iso; });
+    var span = dnum(next.iso) - dnum(prev), pct = span > 0 ? (dnum(today) - dnum(prev)) / span : 0;
+    ring = ringSvg(pct, 150, next.daysTo === 0 ? '🏁' : next.daysTo, next.daysTo === 0 ? 'race day' : (next.daysTo === 1 ? 'day to go' : 'days to go'));
+    cap = '<div class="ringcap">Next: ' + esc(shortRace(next.name)) + '<br><span style="font-weight:600;color:#b9c8ec">' + esc(fmtDT(next.iso)) + '</span></div>';
+  } else if (!d.races.length){ ring = ringSvg(h.totalDays ? h.dayOfPlan / h.totalDays : 0, 150, h.dayOfPlan, 'of ' + h.totalDays + ' days'); cap = '<div class="ringcap">Day of your plan</div>'; }
+  else { ring = ringSvg(1, 150, '🏆', 'season done'); }
+  $('hero').innerHTML = '<div class="hero-text"><div class="eyebrow">' + esc(greetingText(d)) + '</div><h1>' + title + '</h1><p>' + esc(h.motivation) + '</p><div class="chips">' + chips + '</div>' + '</div><div class="hero-ring">' + ring + cap + '</div>';
+}
+
+function renderReview(d){
+  $('reviewCard').innerHTML = '<div class="card-head"><h2>Weekly review</h2><span class="date">' + esc($('syncInfo').textContent) + '</span></div>' +
+    '<p style="margin:0 0 8px;color:#cfd9f4">Once a week, copy this summary of your plan, check-ins and notes and paste it into the chat with Claude. I review it and adjust the next weeks for you.</p><p class="muted small" style="margin:0 0 12px">It leaves out your Strava numbers on purpose: Strava’s rules keep that data out of AI tools. I read your activities separately through the official Strava connector.</p>' +
+    '<button class="btn" onclick="openSummary()">📋 Weekly summary for Claude</button>';
+}
+
+function renderWeeks(d){
+  var html = '<div class="card-head"><h2>Week by week</h2><span class="date">actual / planned run minutes</span></div><div class="list">';
+  d.weeks.forEach(function(w){
+    var now = w.wk === d.hero.wk;
+    html += '<div class="item wk' + (now ? ' now' : '') + '"><div class="n">W' + w.wk + '</div><div class="l"><div class="t">' + esc(fmtD(w.start)) + ' – ' + esc(fmtD(addDays(w.start, 6))) + ' · ' + esc(w.phase) + '</div><div class="muted small">' + esc(w.focus) + (w.key ? ' · ' + esc(w.key) : '') + '</div></div><div class="r">' + esc(w.aMin) + ' / ' + esc(w.pMin) + ' min<br>' + esc(w.done) + ' of ' + esc(w.sessions) + ' done</div></div>';
+  });
+  $('weeksCard').innerHTML = html + '</div>';
+}
+
+function groupDays(rows){
+  var order = [], map = {};
+  rows.forEach(function(p){ if (!map[p.iso]){ map[p.iso] = []; order.push(p.iso); } map[p.iso].push(p); });
+  return order.map(function(k){ return map[k]; });
+}
+function rowsOf(iso){ return DATA.plan.filter(function(p){ return p.iso === iso; }); }
+function findRow(iso, slot){ var r = null; DATA.plan.forEach(function(p){ if (p.iso === iso && p.slot === slot) r = p; }); return r; }
+function primaryRow(rows){
+  var pr = { Race:4, Run:3, Strength:2, Rest:1 };
+  return rows.slice().sort(function(a, b){ return (pr[b.type] || 0) - (pr[a.type] || 0); })[0];
+}
+function dayAgg(rows, today){
+  var non = rows.filter(function(p){ return p.type !== 'Rest'; });
+  if (!non.length) return statusMeta(rows[0], today);
+  var done = non.filter(function(p){ return p.status === 'Done'; }).length;
+  var part = non.filter(function(p){ return p.status === 'Partial' || p.status === 'Short'; }).length;
+  var bad = non.filter(function(p){ return p.status === 'Missed' || p.status === 'Skipped'; }).length;
+  var pend = non.filter(function(p){ return p.status === 'Pending'; }).length;
+  if (done === non.length) return { txt:'✓ Done', cls:'good' };
+  if (done || part) return { txt:'½ Partial', cls:'warn' };
+  if (bad) return { txt:'Missed', cls:'bad' };
+  if (pend) return { txt:'Pending', cls:'accent' };
+  return { txt: rows[0].iso > today ? 'Upcoming' : 'Not logged', cls:'muted' };
+}
+
+var CHEERS = {
+  Run: ['That is another brick in the marathon wall.', 'Done and dusted. Consistency is the whole game.', 'You showed up, and that is the hard part.', 'Miles banked. Future you says thanks.'],
+  Strength: ['Strong legs at km 35 start here.', 'Strength done. Your late-race legs will thank you.', 'Small reps, big payoff on race day.'],
+  Race: ['Race complete. Take a moment, you earned it.', 'Another start line, another finish line. Proud of you.'],
+  Rest: ['Recovery done. Rest is training too.', 'Smart and steady. That is how comebacks work.']
+};
+function cheerFor(p){ var arr = CHEERS[p.type] || CHEERS.Run, n = 0, s = String(p.iso); for (var i = 0; i < s.length; i++) n += s.charCodeAt(i); return arr[n % arr.length]; }
+
+function parseHRTarget(t){
+  t = String(t || '');
+  var m = t.match(/HR\s*(\d{2,3})\s*[-–]\s*(\d{2,3})/); if (m) return { lo: +m[1], hi: +m[2] };
+  m = t.match(/HR\s*(?:≤|<=|under|below)\s*(\d{2,3})/i); if (m) return { lo: null, hi: +m[1] };
+  return null;
+}
+function insightFor(p){
+  if (!p.aHR || !/^(HR|Walk only)/i.test(String(p.target || ''))) return '';
+  var tg = parseHRTarget(p.target); if (!tg) return '';
+  var band = tg.lo != null ? tg.lo + '-' + tg.hi : '≤ ' + tg.hi;
+  if (p.aHR <= tg.hi && (tg.lo == null || p.aHR >= tg.lo)) return '❤️ Average HR ' + p.aHR + ' sat inside your target (' + band + '). Exactly how it should feel.';
+  if (p.aHR > tg.hi) return '⚠️ Average HR ' + p.aHR + ' ran above the ' + tg.hi + ' limit. Next time start slower and let it settle.';
+  return '💙 Average HR ' + p.aHR + ' was a little under the ' + band + ' band. Fine for an easy day.';
+}
+
+function phaseOf(p, today){
+  var st = p.status;
+  if (st === 'Done') return 'done';
+  if (st === 'Partial' || st === 'Short') return 'partial';
+  if (st === 'Skipped') return 'skipped';
+  if (st === 'Missed') return 'missed';
+  if (st === 'Extra run') return 'extra';
+  if (p.iso > today) return 'upcoming';
+  if (p.type === 'Rest' && !(p.pMin > 0)) return p.aMin ? 'extra' : 'rest';
+  return 'pending';
+}
+
+function sumLine(p){
+  var bits = [];
+  if (p.pMin) bits.push('⏱ ' + p.pMin + ' min');
+  if (p.pKm) bits.push('≈ ' + p.pKm + ' km');
+  if (p.target) bits.push('🎯 ' + p.target);
+  return bits.join('  ·  ');
+}
+
+function statTiles(p){
+  var t = [];
+  if (p.aKm) t.push([p.aKm + ' km', 'Distance']);
+  if (p.aMin) t.push([fmtMin(p.aMin), 'Time']);
+  if (p.aHR) t.push([p.aHR + ' bpm', 'Avg HR']);
+  if (p.pace && p.aKm && /^\d{1,2}:\d{2}$/.test(p.pace)) t.push([p.pace + ' /km', 'Pace']);
+  if (!t.length) return '';
+  return '<div class="tiles">' + t.map(function(x){ return '<div class="stile"><b>' + esc(x[0]) + '</b><span>' + esc(x[1]) + '</span></div>'; }).join('') + '</div>' +
+    '<div class="sub2">' + (p.mHR ? '<span>Max HR ' + esc(p.mHR) + ' bpm</span>' : '') + (p.link ? '<a class="stravalink" href="' + esc(p.link) + '" target="_blank" rel="noopener">View on Strava ↗</a>' : '') + '</div>';
+}
+
+function menuHtml(p, today, ph){
+  var iso = esc(p.iso), slot = esc(p.slot), log = [], plan = [];
+  function st(label, s){ log.push([label, "setStatus('" + iso + "'," + slot + ",'" + s + "')"]); }
+  if (p.iso <= today && ph !== 'done') st('✓ Mark done', 'Done');
+  if (p.iso <= today && ph !== 'partial') st('½ Mark partial', 'Partial');
+  if (p.iso <= today && ph !== 'skipped') st('✗ Mark skipped', 'Skipped');
+  if (p.ovr) st('↺ Clear manual status', '');
+  plan.push(['✎ Edit session', "openEdit('" + iso + "'," + slot + ")"]);
+  plan.push(['＋ Add session to this day', "openEdit('" + iso + "',null)"]);
+  if (p.iso >= today) plan.push(['⇄ Swap day', "openSwap('" + iso + "')"]);
+  function sec(title, items){ return items.length ? '<div class="mh">' + title + '</div>' + items.map(function(x){ return '<button onclick="' + x[1] + '">' + esc(x[0]) + '</button>'; }).join('') : ''; }
+  return '<div class="kw"><button class="kebab adj" aria-label="Adjust this session" onclick="toggleMenu(this,event)">Adjust ▾</button><div class="menu">' + sec('Log manually', log) + sec('Change plan', plan) + '</div></div>';
+}
+
+function toggleMenu(btn, ev){
+  if (ev) ev.stopPropagation();
+  var m = btn.parentNode.querySelector('.menu'), open = m.classList.contains('show');
+  closeMenus(); if (!open) m.classList.add('show');
+}
+function closeMenus(){ var ms = document.querySelectorAll('.menu.show'); for (var i = 0; i < ms.length; i++) ms[i].classList.remove('show'); }
+document.addEventListener('click', closeMenus);
+function toggleDetails(a){ var p = a.previousElementSibling; var open = p.classList.toggle('open'); a.textContent = open ? 'Show less' : 'Read more'; }
+
+function splitCheck(text){
+  var sents = text.match(/[^.!?]+[.!?]+\s*/g) || [text], chk = [], rest = [];
+  sents.forEach(function(s){
+    if (chk.length < 2 && /^\s*(Only (?:go |run )?if|If your|Any chest|Skip )/i.test(s)) chk.push(s.trim()); else rest.push(s);
+  });
+  return { check: chk, rest: rest.join('').trim() };
+}
+function detailsBlock(p, full){
+  var text = String(p.details || ''); if (!text) return '';
+  var sp = splitCheck(text), out = '';
+  if (sp.check.length) out += '<div class="callout">⚠️ <b>Check first:</b> ' + esc(sp.check.join(' ')) + '</div>';
+  if (!sp.rest) return out;
+  if (full) return out + '<p class="details">' + esc(sp.rest) + '</p>';
+  return out + '<p class="details clamp">' + esc(sp.rest) + '</p><a class="rd" onclick="toggleDetails(this)">Read more</a>';
+}
+// Show "Read more" only where the preview really is cut off.
+function fixClamps(){
+  var els = document.querySelectorAll('.details.clamp');
+  for (var i = 0; i < els.length; i++){
+    var p = els[i], a = p.nextElementSibling;
+    if (!a || a.className.indexOf('rd') < 0) continue;
+    a.style.display = (p.classList.contains('open') || p.scrollHeight > p.clientHeight + 2) ? 'inline-block' : 'none';
+  }
+}
+window.addEventListener('resize', fixClamps);
+
+function sessionCard(p, today, full){
+  var ph = phaseOf(p, today), iso = esc(p.iso), slot = esc(p.slot), menu = menuHtml(p, today, ph), planned = p.pMin || 0;
+  var lock = p.locked ? ' <span class="chip accent" style="font-size:10px;padding:1px 7px">✎ edited</span>' : '';
+  var plannedBlock = '<details class="planned"><summary>What was planned' + (p.pMin ? ' · ' + esc(p.pMin) + ' min' : '') + '</summary><p>' + esc(p.details || sumLine(p)) + '</p></details>';
+  if (ph === 'done' || ph === 'partial'){
+    var cls = ph === 'done' ? 'good' : 'warn';
+    var ratio = planned ? Math.min(1, (p.aMin || 0) / planned) : 1;
+    var prog = (planned && p.aMin) ? '<div class="prog"><div class="bar"><i style="width:' + Math.round(ratio * 100) + '%"></i></div><span>' + esc(p.aMin) + ' of ' + esc(planned) + ' min</span></div>' : '';
+    var body = p.aMin ? statTiles(p) : '<p class="muted small" style="margin:0 0 10px">Marked ' + esc(p.ovr || 'done') + ' manually (no Strava activity matched).</p>';
+    var ins = insightFor(p);
+    return '<div class="sess"><div class="banner2 ' + cls + '"><div class="check">' + (ph === 'done' ? '✓' : '½') + '</div><div class="bt"><div class="bl">' + (ph === 'done' ? 'Session complete' : 'Partly done') + '</div><div class="bn">' + esc(p.session) + lock + '</div></div>' + menu + '</div>' +
+      prog + body + (ins ? '<div class="insight">' + esc(ins) + '</div>' : '') + (ph === 'done' ? '<div class="cheer">' + esc(cheerFor(p)) + '</div>' : '<div class="cheer">Every minute counts. Pick the next one up.</div>') + plannedBlock + '</div>';
+  }
+  if (ph === 'skipped' || ph === 'missed'){
+    return '<div class="sess"><div class="banner2 bad"><div class="check">✕</div><div class="bt"><div class="bl">' + (ph === 'skipped' ? 'Skipped' : 'Not logged') + '</div><div class="bn">' + esc(p.session) + lock + '</div></div>' + menu + '</div>' +
+      '<div class="sumline">' + esc(sumLine(p)) + '</div><p class="muted small" style="margin:0 0 10px">Do not cram it in later. If you did it, use Adjust → Mark done; otherwise move on.</p>' +
+      plannedBlock + '</div>';
+  }
+  var chipTxt = ph === 'pending' ? 'To do' : (ph === 'upcoming' ? 'Upcoming' : (ph === 'rest' ? 'Rest day' : 'Logged on Strava'));
+  var chipCls = ph === 'pending' ? 'accent' : (ph === 'extra' ? 'blue' : 'muted');
+  var chip = ph === 'pending' ? '' : '<span class="chip ' + chipCls + '">' + esc(chipTxt) + '</span>';
+  var head = '<div class="shead"><span class="typebadge" style="--c:' + typeColor(p.type) + '">' + typeIcon(p.type) + ' ' + esc(p.type) + '</span>' + chip + lock + menu + '</div>';
+  var main = head + '<div class="today-title">' + esc(p.session) + '</div>' + (sumLine(p) ? '<div class="sumline">' + esc(sumLine(p)) + '</div>' : '') + detailsBlock(p, full);
+  if (ph === 'extra') main += statTiles(p);
+  return '<div class="sess' + (ph === 'rest' ? ' restcard' : '') + '">' + main + '</div>';
+}
+
+function nextUp(d){
+  var today = d.now.today, n = null;
+  d.plan.forEach(function(p){ if (!n && p.iso > today && p.type !== 'Rest') n = p; });
+  if (!n) d.plan.forEach(function(p){ if (!n && p.iso > today) n = p; });
+  if (!n) return '';
+  return '<div class="nextup">Next up: <b>' + esc(fmtDT(n.iso)) + ' · ' + esc(n.session) + '</b>' + (n.pMin ? ' · ' + esc(n.pMin) + ' min' : '') + '</div>';
+}
+
+function renderToday(d){
+  var rows = d.todayRows || (d.today ? [d.today] : []), el = $('todayCard');
+  if (!rows.length){ el.innerHTML = '<div class="card-head"><h2>Today</h2><span class="date">' + esc(fmtDT(d.now.today)) + '</span></div><p class="muted">No session scheduled for today (' + (d.now.today < d.planStart ? 'the plan starts on ' + esc(fmtD(d.planStart)) : 'the plan has finished') + ').</p>'; return; }
+  el.innerHTML = '<div class="card-head"><h2>Today' + (rows.length > 1 ? ' · ' + rows.length + ' sessions' : '') + '</h2><span class="date">' + esc(fmtDT(rows[0].iso)) + '</span></div>' +
+    rows.map(function(p){ return sessionCard(p, d.now.today, false); }).join('') + nextUp(d);
+}
+
+function renderReady(d){
+  var r = d.readiness, th = d.thresholds;
+  var chips = r.flags.map(function(f){ return '<span class="chip warn">⚠ ' + esc(f) + '</span>'; }).join(' ');
+  var rules = [];
+  if (th.restHR > 0) rules.push('resting HR ' + th.restHR + '+ (baseline ' + th.baselineRestHR + ')');
+  if (th.baselineHRV > 0) rules.push('HRV well below ' + th.baselineHRV);
+  rules.push('under 6 h sleep'); rules.push('soreness 4+');
+  $('readyCard').innerHTML = '<div class="card-head"><h2>Readiness</h2><span class="date">' + (r.basedOn ? 'from ' + esc(fmtD(r.basedOn)) : '') + '</span></div>' +
+    '<div class="ready ' + esc(r.level) + '"><h3>' + esc(r.title) + '</h3><p>' + esc(r.text) + '</p></div>' +
+    (chips ? '<div class="chips" style="margin-bottom:8px">' + chips + '</div>' : '') +
+    rhrSpark(d) + '<p class="muted small" style="margin:10px 0 0">Flags: ' + esc(rules.join(', ')) + '. One flag: easy day. Two: rest.</p>';
+}
+
+function rhrSpark(d){
+  var pts = d.plan.filter(function(p){ return p.rhr != null && p.iso <= d.now.today; }).slice(-14);
+  if (pts.length < 2) return '<p class="muted small" style="margin:10px 0 0">Log your resting HR for a few mornings to see the trend here.</p>';
+  var W = 320, H = 96, L = 28, R = 8, T = 10, B = 18, th = d.thresholds;
+  var mn = Math.min(th.baselineRestHR - 3, Math.min.apply(null, pts.map(function(p){ return p.rhr; })) - 1);
+  var mx = Math.max((th.restHR > 0 ? th.restHR : th.baselineRestHR + 8) + 2, Math.max.apply(null, pts.map(function(p){ return p.rhr; })) + 1);
+  function X(i){ return L + (W - L - R) * i / (pts.length - 1); }
+  function Y(v){ return T + (H - T - B) * (1 - (v - mn) / (mx - mn)); }
+  var s = '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%" role="img" aria-label="Resting heart rate trend">';
+  s += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + Y(th.baselineRestHR) + '" y2="' + Y(th.baselineRestHR) + '" stroke="rgba(52,211,153,.6)" stroke-dasharray="4 3"/><text x="' + (L - 4) + '" y="' + (Y(th.baselineRestHR) + 3) + '" text-anchor="end" font-size="9" fill="#8ff0c8">' + th.baselineRestHR + '</text>';
+  if (th.restHR > 0) s += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + Y(th.restHR) + '" y2="' + Y(th.restHR) + '" stroke="rgba(248,113,113,.6)" stroke-dasharray="4 3"/><text x="' + (L - 4) + '" y="' + (Y(th.restHR) + 3) + '" text-anchor="end" font-size="9" fill="#ffb3b3">' + th.restHR + '</text>';
+  s += '<path d="' + pts.map(function(p, i){ return (i ? 'L' : 'M') + X(i).toFixed(1) + ' ' + Y(p.rhr).toFixed(1); }).join(' ') + '" fill="none" stroke="#60a5fa" stroke-width="2.5" stroke-linejoin="round"/>';
+  pts.forEach(function(p, i){ s += '<circle cx="' + X(i) + '" cy="' + Y(p.rhr) + '" r="3.5" fill="#0b1328" stroke="#60a5fa" stroke-width="2"><title>' + esc(fmtD(p.iso)) + ': resting HR ' + p.rhr + '</title></circle>'; });
+  s += '<text x="' + L + '" y="' + (H - 4) + '" font-size="9" fill="#93a3c7">' + esc(fmtD(pts[0].iso)) + '</text><text x="' + (W - R) + '" y="' + (H - 4) + '" text-anchor="end" font-size="9" fill="#93a3c7">' + esc(fmtD(pts[pts.length - 1].iso)) + '</text></svg>';
+  return '<div class="muted small" style="margin:12px 0 2px">Resting HR, last 14 check-ins (green = baseline)</div>' + s;
+}
+
+function renderCheckin(d){
+  var today = d.now.today;
+  var min = d.planStart, max = d.planEnd < today ? d.planEnd : today;
+  $('checkinCard').innerHTML = '<div class="card-head"><h2>Morning check-in</h2></div>' +
+    '<div class="form">' +
+    '<div><label>Resting HR</label><input type="number" id="ciRhr" inputmode="numeric" placeholder="e.g. 57"></div>' +
+    '<div><label>HRV (ms)</label><input type="number" id="ciHrv" inputmode="numeric" placeholder="e.g. 48"></div>' +
+    '<div><label>Sleep (hours)</label><input type="number" step="0.1" id="ciSleep" inputmode="decimal" placeholder="e.g. 7.5"></div>' +
+    '<div><label>Soreness (1 fresh – 5 very sore)</label><select id="ciSore"><option value="">–</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></div>' +
+    '<div class="full"><label>Notes (how it felt, niggles, anything odd)</label><textarea id="ciNotes" style="min-height:52px" placeholder="e.g. legs heavy at km 5, felt smooth after"></textarea></div>' +
+    '<div class="full"><details class="moref"><summary>More fields (date, RPE, test HR)</summary><div class="form">' +
+    '<div class="full"><label>Date</label><input type="date" id="ciDate" min="' + esc(min) + '" max="' + esc(max) + '" value="' + esc(max < today ? max : today) + '" onchange="fillCheckin(this.value)"></div>' +
+    '<div><label>RPE of the main session (1-10)</label><select id="ciRpe"><option value="">–</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option><option>9</option><option>10</option></select></div>' +
+    '<div><label>Avg HR in a test or race</label><input type="number" id="ciTest" inputmode="numeric" placeholder="HR tests only"></div>' +
+    '</div></details></div>' +
+    '<div class="full"><button class="btn" id="ciSave" onclick="saveCheckin()">Save check-in</button> <span class="muted small" id="ciMsg"></span></div></div>';
+  fillCheckin($('ciDate').value);
+  if (window.__ciMsg){ $('ciMsg').textContent = window.__ciMsg; window.__ciMsg = ''; }
+}
+
+function fillCheckin(iso){
+  var p = null; DATA.plan.forEach(function(x){ if (!p && x.iso === iso) p = x; });
+  function v(x){ return x == null ? '' : x; }
+  $('ciRhr').value = p ? v(p.rhr) : ''; $('ciHrv').value = p ? v(p.hrv) : ''; $('ciSleep').value = p ? v(p.sleep) : '';
+  $('ciSore').value = p ? v(p.sore) : ''; $('ciRpe').value = p ? v(p.rpe) : ''; $('ciTest').value = p ? v(p.testHR) : '';
+  $('ciNotes').value = p ? p.notes : '';
+}
+
+function saveCheckin(){
+  var iso = $('ciDate').value; if (!iso) return;
+  var payload = { rhr:$('ciRhr').value, hrv:$('ciHrv').value, sleep:$('ciSleep').value, sore:$('ciSore').value, rpe:$('ciRpe').value, testHR:$('ciTest').value, notes:$('ciNotes').value };
+  $('ciSave').disabled = true; $('ciMsg').textContent = 'Saving…';
+  google.script.run.withSuccessHandler(function(){ window.__ciMsg = 'Saved ✓ (' + iso + ')'; load(true); })
+    .withFailureHandler(function(e){ $('ciSave').disabled = false; $('ciMsg').textContent = 'Could not save: ' + (e && e.message ? e.message : e); })
+    .saveCheckin(iso, payload);
+}
+
+function setStatus(iso, slot, st){
+  google.script.run.withSuccessHandler(function(){ window.__reopen = $('modal').classList.contains('show') ? iso : null; closeModal(); load(true); })
+    .withFailureHandler(function(e){ alert('Could not save: ' + (e && e.message ? e.message : e)); })
+    .setStatus(iso, slot, st);
+}
+
+function renderWeek(d){
+  var wk = d.hero.wk; if (!wk || wk === 99) wk = d.plan.length ? (d.now.today < d.planStart ? 1 : d.hero.totalWeeks) : 1;
+  var groups = groupDays(d.plan.filter(function(p){ return p.wk === wk; }));
+  var html = '<div class="card-head"><h2>This week · Week ' + wk + '</h2><span class="date">tap a day for details</span></div><div class="week">';
+  groups.forEach(function(g){
+    var agg = dayAgg(g, d.now.today), pm = primaryRow(g), first = g[0];
+    var extra = g.filter(function(r){ return r !== pm && r.type !== 'Rest'; }).length;
+    var icons = ''; g.forEach(function(r){ var ic = typeIcon(r.type); if (icons.indexOf(ic) < 0) icons += ic; });
+    var mins = 0; g.forEach(function(r){ if (r.type !== 'Rest') mins += (r.pMin || 0); }); if (!mins) g.forEach(function(r){ mins += (r.pMin || 0); });
+    var sym = ({ good:'✓', warn:'½', bad:'✕', accent:'•' })[agg.cls] || '';
+    var cls = (first.iso === d.now.today ? ' today' : '') + (agg.cls === 'good' ? ' good' : agg.cls === 'bad' ? ' bad' : agg.cls === 'warn' ? ' warn' : '');
+    html += '<div class="tile' + cls + '" onclick="openDay(\'' + esc(first.iso) + '\')"><div class="dw">' + esc(first.dow) + '</div><div class="dn">' + dayNum(first.iso) + '</div><div class="ic">' + icons + '</div>' +
+      '<div class="nm">' + esc(pm.session) + (extra ? ' <span style="color:#a9b8de">+' + extra + '</span>' : '') + '</div>' +
+      '<div class="mn">' + (mins ? esc(mins) + ' min' : '—') + '</div><div class="st ' + esc(agg.cls) + '" title="' + esc(agg.txt) + '">' + sym + '</div></div>';
+  });
+  $('weekCard').innerHTML = html + '</div>';
+}
+
+function renderStats(d){
+  var s = d.stats, pct = Math.round(s.completionPct * 100);
+  $('statsCard').innerHTML = '<div class="card-head"><h2>Progress so far</h2><span class="date">' + s.doneCount + ' done · ' + s.partialCount + ' partial · ' + s.plannedCount + ' due</span></div>' +
+    '<div class="stats"><div class="ringbox">' + ringSvg(s.completionPct, 130, pct + '%', 'completion') + '</div>' +
+    '<div class="stat"><b>' + esc(s.totalKm) + '</b><span>km run in the plan</span></div>' +
+    '<div class="stat"><b>' + esc(s.hoursOnFeet) + ' h</b><span>time running</span></div>' +
+    '<div class="stat"><b>' + esc(fmtMin(s.longestMin)) + '</b><span>longest run' + (s.longestKm ? ' (' + esc(s.longestKm) + ' km)' : '') + '</span></div></div>' +
+    '<div class="statgrid" style="margin-top:10px"><div class="stat"><b>' + esc(s.runs) + '</b><span>runs logged</span></div><div class="stat"><b>' + esc(s.streak) + '</b><span>current run streak</span></div><div class="stat"><b>' + esc(s.bestStreak) + '</b><span>best run streak</span></div></div>';
+}
+
+function renderFlags(d){
+  var f = d.flags, html = '<div class="card-head"><h2>Coach flags</h2></div><div class="list">';
+  if (!f.length) html += '<div class="item"><span>✅</span><div class="l">All clear. No flags right now.</div></div>';
+  f.forEach(function(x){ html += '<div class="item ' + (x.level === 'warn' ? 'warn' : '') + '"><span>' + (x.level === 'warn' ? '⚠️' : 'ℹ️') + '</span><div class="l">' + esc(x.text) + '</div></div>'; });
+  $('flagsCard').innerHTML = html + '</div>';
+}
+
+function renderRaces(d){
+  var html = '<div class="card-head"><h2>Race countdown</h2></div><div class="list">';
+  if (!d.races.length) html += '<p class="hint">No races yet. Add them in the Races tab of your Google Sheet.</p>';
+  d.races.forEach(function(r){
+    html += '<div class="item race"><div class="big">' + (r.past ? '✓' : r.daysTo) + '<small>' + (r.past ? 'done' : 'days') + '</small></div><div class="l"><div class="t">' + esc(r.name) + '</div><div class="muted small">' + esc(fmtDT(r.iso)) + ' · ' + esc(r.km) + ' km</div><div class="small">' + esc(r.goal) + '</div></div></div>';
+  });
+  $('racesCard').innerHTML = html + '</div>';
+}
+
+function renderLoad(d){
+  $('loadCard').innerHTML = '<div class="card-head"><h2>Weekly run time: plan vs actual (minutes)</h2><span class="date"><i style="display:inline-block;width:10px;height:10px;background:rgba(147,163,199,.5);border-radius:3px"></i> plan &nbsp;<i style="display:inline-block;width:10px;height:10px;background:#ff8a3d;border-radius:3px"></i> actual</span></div>' + barChart(d.weeks, d.hero.wk);
+}
+
+function renderMap(d){
+  var rows = '', weeks = {}, order = [];
+  groupDays(d.plan).forEach(function(g){ var w = g[0].wk; if (!weeks[w]){ weeks[w] = []; order.push(w); } weeks[w].push(g); });
+  order.forEach(function(w){
+    var arr = weeks[w], t = '';
+    arr.forEach(function(g){
+      var agg = dayAgg(g, d.now.today), pm = primaryRow(g), bg;
+      if (agg.cls === 'good') bg = 'rgba(52,211,153,.85)'; else if (agg.cls === 'warn') bg = 'rgba(251,191,36,.85)'; else if (agg.cls === 'bad') bg = 'rgba(248,113,113,.85)';
+      else bg = typeColor(pm.type) + (pm.type === 'Rest' ? '55' : '66');
+      var hasRace = g.some(function(r){ return r.type === 'Race'; });
+      var multi = g.filter(function(r){ return r.type !== 'Rest'; }).length > 1;
+      t += '<div class="mt' + (g[0].iso === d.now.today ? ' today' : '') + '" style="background:' + bg + '" title="' + esc(fmtDT(g[0].iso) + ': ' + g.map(function(r){ return r.session; }).join(' + ')) + '" onclick="openDay(\'' + esc(g[0].iso) + '\')">' + (hasRace ? '🏁' : '') + (multi ? '<span class="plus">＋</span>' : '') + '</div>';
+    });
+    rows += '<div class="mrow"><div class="mlab">W' + w + ' · ' + esc(fmtD(arr[0][0].iso)) + '</div>' + t + '</div>';
+  });
+  $('mapCard').innerHTML = '<div class="card-head"><h2>Season map</h2><span class="date">Mon → Sun, tap a day</span></div><div class="map">' + rows + '</div>' +
+    '<div class="legend"><span><i style="background:rgba(52,211,153,.85)"></i>Done</span><span><i style="background:rgba(251,191,36,.85)"></i>Partial</span><span><i style="background:rgba(248,113,113,.85)"></i>Missed</span><span><i style="background:#60a5fa66"></i>Run</span><span><i style="background:#a78bfa66"></i>Strength</span><span><i style="background:#fcd34d66"></i>Race 🏁</span><span><i style="background:#64748b55"></i>Rest</span><span>＋ two or more sessions</span></div>';
+}
+
+function renderTests(d){
+  var html = '<div class="card-head"><h2>Fitness checkpoints</h2></div><table><tr><th>Test</th><th>Target</th><th>Yours</th><th></th></tr>';
+  d.tests.forEach(function(x){
+    var cls = x.status === 'Target met' ? 'good' : (x.status === 'Keep building' ? 'warn' : 'muted');
+    html += '<tr><td><b>' + esc(x.label) + '</b><br><span class="muted small">' + esc(fmtD(x.iso)) + ' · ' + esc(x.session) + '</span></td><td>' + (x.target == null ? '—' : '≤ ' + esc(x.target)) + '</td><td>' + (x.actual == null ? '—' : esc(x.actual)) + '</td><td><span class="chip ' + cls + '">' + esc(x.status) + '</span></td></tr>';
+  });
+  $('testsCard').innerHTML = html + '</table><p class="muted small" style="margin:10px 0 0">' + esc((d.testsNote ? d.testsNote + ' ' : '') + 'Enter test HR under “More fields” in the check-in on the test day.') + '</p>';
+}
+
+function renderGoals(d){
+  var html = '<div class="card-head"><h2>Goals</h2></div><div class="list">';
+  if (!d.goals.length) html += '<p class="hint">No goals yet. Add them in the Goals tab of your Google Sheet.</p>';
+  d.goals.forEach(function(g){
+    var cls = g.status === 'Achieved' ? 'good' : (g.status === 'In progress' ? 'accent' : 'muted');
+    html += '<div class="item"><div class="l"><div class="t">' + esc(g.goal) + ': ' + esc(g.target) + '</div>' + (g.result ? '<div class="muted small">' + esc(g.result) + '</div>' : '') + '</div><span class="chip ' + cls + '">' + esc(g.status) + '</span></div>';
+  });
+  if (d.refs.length){ html += '<div class="muted small" style="margin-top:4px">Where you started</div>'; d.refs.forEach(function(r){ html += '<div class="item"><div class="l">' + esc(r.label) + '</div><b>' + esc(r.value) + '</b></div>'; }); }
+  $('goalsCard').innerHTML = html + '</div>';
+}
+
+function renderEff(d){
+  var e = d.efficiency;
+  var body = e.length >= 2 ? lineChart(e) : '<p class="muted">Needs at least two easy runs (20+ min, HR 120-160) from Strava. It will appear after your next sync.</p>';
+  $('effCard').innerHTML = '<div class="card-head"><h2>Easy-run efficiency</h2><span class="date">higher = faster at the same HR</span></div>' + body +
+    '<p class="muted small" style="margin:8px 0 0">Speed in metres per minute per heartbeat (×100) on easy runs of 20-75 minutes. If the line climbs over the weeks, your aerobic engine is growing, even when the pace looks the same.</p>';
+}
+
+function renderRecent(d){
+  var html = '<div class="card-head"><h2>Recent activities from Strava</h2></div>';
+  if (!d.recent.length){ $('recentCard').innerHTML = html + '<p class="muted">' + (d.now.useStrava === false ? 'Strava sync is switched off. Log sessions with Adjust → Mark done.' : 'Nothing yet. Press Sync.') + '</p>'; return; }
+  html += '<table><tr><th>Date</th><th>Activity</th><th>Dist</th><th>Time</th><th>Pace</th><th>HR</th></tr>';
+  d.recent.forEach(function(a){
+    html += '<tr><td>' + esc(fmtD(a.iso)) + '</td><td><a style="color:var(--text)" href="' + esc(a.link) + '" target="_blank" rel="noopener">' + esc(a.name) + '</a><br><span class="muted small">' + esc(a.sport) + '</span></td><td>' + esc(a.km) + ' km</td><td>' + esc(fmtMin(a.min)) + '</td><td>' + (a.pace ? esc(a.pace) : '—') + '</td><td>' + (a.hr ? esc(a.hr) : '—') + '</td></tr>';
+  });
+  $('recentCard').innerHTML = html + '</table>';
+}
+
+function renderBadges(d){
+  var earned = d.badges.filter(function(b){ return b.earned; }).length;
+  var html = '<div class="card-head"><h2>Milestones</h2><span class="date">' + earned + ' of ' + d.badges.length + ' unlocked</span></div><div class="badges">';
+  d.badges.forEach(function(b){ html += '<div class="bd ' + (b.earned ? 'on' : 'off') + '"><span class="ic">' + b.icon + '</span><b>' + esc(b.title) + '</b><span>' + esc(b.desc) + '</span></div>'; });
+  $('badgesCard').innerHTML = html + '</div>';
+}
+
+function renderQuote(d){
+  var idx = Math.abs(parseInt(d.now.today.replace(/-/g, ''), 10)) % QUOTES.length;
+  $('quoteCard').innerHTML = '<div class="card-head"><h2>Today’s fuel for the mind</h2></div><div class="quote">“' + esc(QUOTES[idx]) + '”</div>' +
+    '<p class="muted" style="margin:0">' + esc(d.hero.motivation) + '</p>';
+}
+
+/* ---------- modal ---------- */
+function openModal(html){ $('sheet').innerHTML = html; $('modal').classList.add('show'); try { fixClamps(); } catch (e) {} }
+function closeModal(){ $('modal').classList.remove('show'); }
+
+function openDay(iso){
+  var rows = rowsOf(iso);
+  if (!rows.length) return;
+  var first = rows[0], man = [];
+  if (first.rhr != null) man.push('resting HR ' + first.rhr); if (first.hrv != null) man.push('HRV ' + first.hrv); if (first.sleep != null) man.push('sleep ' + first.sleep + ' h');
+  if (first.sore != null) man.push('soreness ' + first.sore + '/5'); if (first.rpe != null) man.push('RPE ' + first.rpe);
+  var notes = rows.map(function(r){ return r.notes; }).filter(function(x){ return x; }).join(' · ');
+  openModal('<div class="card-head"><div><h3 style="margin:0">' + esc(fmtDT(iso)) + '</h3><div class="muted small">Week ' + esc(first.wk) + ' · ' + esc(first.phase) + '</div></div><button class="btn small ghost" onclick="closeModal()">Close</button></div>' +
+    rows.map(function(p){ return sessionCard(p, DATA.now.today, true); }).join('') +
+    (man.length ? '<p class="muted small">Check-in: ' + esc(man.join(' · ')) + '</p>' : '') + (notes ? '<p class="small"><b>Note:</b> ' + esc(notes) + '</p>' : ''));
+}
+
+function typeOptions(sel){ return ['Run', 'Strength', 'Race', 'Rest'].map(function(t){ return '<option' + (t === sel ? ' selected' : '') + '>' + t + '</option>'; }).join(''); }
+var EDIT = { iso: null, slot: null };
+
+function openEdit(iso, slot){
+  var p = (slot === null || slot === undefined) ? null : findRow(iso, slot);
+  EDIT = { iso: iso, slot: p ? p.slot : null };
+  var count = rowsOf(iso).length;
+  openModal('<div class="card-head"><h3 style="margin:0">' + (p ? 'Edit session' : 'Add a session') + '</h3><button class="btn small ghost" onclick="closeModal()">Close</button></div>' +
+    '<div class="muted small">' + esc(fmtDT(iso)) + (p ? '' : ' · added as another session on this day') + '</div>' +
+    '<div class="form" style="margin-top:10px">' +
+    '<div><label>Type</label><select id="edType">' + typeOptions(p ? p.type : 'Strength') + '</select></div>' +
+    '<div><label>Planned minutes</label><input type="number" id="edMin" inputmode="numeric"></div>' +
+    '<div class="full"><label>Session name</label><input id="edName"></div>' +
+    '<div class="full"><label>Target (HR / pace)</label><input id="edTarget"></div>' +
+    '<div class="full"><label>What to do</label><textarea id="edDetails" style="min-height:130px"></textarea></div>' +
+    '<div class="full"><button class="btn" id="edSave" onclick="saveSession()">Save</button> ' +
+    (p && count > 1 ? '<button class="btn ghost" id="edDel" onclick="removeSession()">Remove session</button> ' : '') +
+    '<span class="muted small" id="edMsg"></span></div></div>' +
+    '<p class="muted small" style="margin:10px 0 0">' + (p ? 'Edits are marked ✎ in the Sheet, so “Update plan text” will not overwrite them.' : 'Added sessions are marked ✎ in the Sheet.') + '</p>');
+  $('edName').value = p ? p.session : ''; $('edTarget').value = p ? (p.target || '') : ''; $('edDetails').value = p ? (p.details || '') : ''; $('edMin').value = p ? p.pMin : '';
+}
+
+function saveSession(){
+  var f = { type: $('edType').value, session: $('edName').value, pMin: $('edMin').value, target: $('edTarget').value, details: $('edDetails').value };
+  $('edSave').disabled = true; $('edMsg').textContent = 'Saving…';
+  var run = google.script.run.withSuccessHandler(function(){ window.__reopen = EDIT.iso; closeModal(); load(true); })
+    .withFailureHandler(function(e){ $('edSave').disabled = false; $('edMsg').textContent = (e && e.message ? e.message : String(e)); });
+  if (EDIT.slot === null) run.addSession(EDIT.iso, f); else run.updateSession(EDIT.iso, EDIT.slot, f);
+}
+
+function removeSession(){
+  if (!confirm('Remove this session from the plan?')) return;
+  $('edMsg').textContent = 'Removing…';
+  google.script.run.withSuccessHandler(function(){ window.__reopen = EDIT.iso; closeModal(); load(true); })
+    .withFailureHandler(function(e){ $('edMsg').textContent = (e && e.message ? e.message : String(e)); })
+    .deleteSession(EDIT.iso, EDIT.slot);
+}
+
+function openSwap(iso){
+  var today = DATA.now.today, byWk = {}, order = [];
+  groupDays(DATA.plan).forEach(function(g){ var f = g[0]; if (f.iso < today || f.iso === iso) return; if (!byWk[f.wk]){ byWk[f.wk] = []; order.push(f.wk); } byWk[f.wk].push(g); });
+  var opts = order.map(function(w){ return '<optgroup label="Week ' + w + '">' + byWk[w].map(function(g){ return '<option value="' + esc(g[0].iso) + '">' + esc(fmtDT(g[0].iso)) + ' · ' + esc(g.map(function(r){ return r.session; }).join(' + ')) + '</option>'; }).join('') + '</optgroup>'; }).join('');
+  openModal('<div class="card-head"><h3 style="margin:0">Swap day</h3><button class="btn small ghost" onclick="closeModal()">Close</button></div>' +
+    '<p class="muted">Swap everything planned on <b>' + esc(fmtDT(iso)) + '</b> with another day. Logs, notes and Strava data stay with their dates.</p>' +
+    '<div class="form"><div class="full"><label>Swap with</label><select id="swTarget">' + opts + '</select></div>' +
+    '<div class="full"><button class="btn" id="swGo" onclick="doSwap(\'' + esc(iso) + '\')">Swap</button> <span class="muted small" id="swMsg"></span></div></div>');
+}
+
+function doSwap(iso){
+  var other = $('swTarget').value; if (!other) return;
+  $('swGo').disabled = true; $('swMsg').textContent = 'Swapping…';
+  google.script.run.withSuccessHandler(function(){ window.__reopen = iso; closeModal(); load(true); })
+    .withFailureHandler(function(e){ $('swGo').disabled = false; $('swMsg').textContent = (e && e.message ? e.message : String(e)); })
+    .swapDays(iso, other);
+}
+
+function openSummary(){
+  openModal('<h3>Weekly summary</h3><p class="muted">Building it…</p>');
+  google.script.run.withSuccessHandler(function(txt){
+    openModal('<div class="card-head"><h3>Weekly summary</h3><button class="btn small ghost" onclick="closeModal()">Close</button></div><p class="muted small">Copy this and paste it into the chat with Claude. It has no Strava numbers; Claude reads those through the Strava connector.</p><textarea id="sumText" readonly>' + esc(txt) + '</textarea><div style="margin-top:10px"><button class="btn" onclick="copySummary()">Copy to clipboard</button> <span class="muted small" id="copyMsg"></span></div>');
+  }).withFailureHandler(function(e){ openModal('<h3>Could not build the summary</h3><p class="muted">' + esc(e && e.message ? e.message : e) + '</p>'); }).getWeeklySummary();
+}
+
+function copySummary(){
+  var ta = $('sumText'); ta.focus(); ta.select();
+  var ok = false; try { ok = document.execCommand('copy'); } catch (e) {}
+  $('copyMsg').textContent = ok ? 'Copied ✓' : 'Press and hold the text to copy it';
+}
+
+
+function showTab(name){
+  var names = ['today', 'progress', 'plan', 'activity', 'goals'];
+  if (names.indexOf(name) < 0) name = 'today';
+  names.forEach(function(t){ $('pane-' + t).classList.toggle('on', t === name); });
+  var btns = document.querySelectorAll('#tabs button');
+  for (var i = 0; i < btns.length; i++) btns[i].classList.toggle('on', btns[i].getAttribute('data-tab') === name);
+  try { window.scrollTo(0, 0); } catch (e) {}
+  try { sessionStorage.setItem('tab', name); } catch (e) {}
+}
+try { var savedTab = sessionStorage.getItem('tab'); if (savedTab) showTab(savedTab); } catch (e) {}
+
+
+/* ---------- sync status and automatic refresh ---------- */
+var AUTO_STALE_MIN = 20, lastAutoTry = 0;
+function syncAgeMin(d){
+  if (!d.now.lastSync || !d.now.nowIso) return null;
+  var a = Date.parse(d.now.lastSync + 'Z'), b = Date.parse(d.now.nowIso + 'Z');
+  if (isNaN(a) || isNaN(b)) return null;
+  return Math.max(0, (b - a) / 60000) + (Date.now() - (window.__loadedAt || Date.now())) / 60000;
+}
+function agoText(m){
+  m = Math.round(m); if (m < 1) return 'just now'; if (m < 60) return m + ' min ago';
+  var h = Math.round(m / 60); if (h < 24) return h + ' h ago'; return Math.round(h / 24) + ' d ago';
+}
+function renderSyncInfo(d){
+  var el = $('syncInfo');
+  if (d.now.useStrava === false){ el.textContent = 'Manual logging'; el.title = 'Strava sync is off (Settings tab)'; $('btnSync').style.display = 'none'; return; }
+  $('btnSync').style.display = '';
+  if (!d.now.connected){ el.textContent = 'Strava not connected'; el.title = ''; return; }
+  var age = syncAgeMin(d), on = d.now.autoSync, cls = on === true ? 'on' : (on === false ? 'off' : '');
+  var txt = d.now.lastSync ? (age === null ? 'Synced ' + fmtD(d.now.lastSync.substring(0, 10)) + ' ' + d.now.lastSync.substring(11, 16) : 'Synced ' + agoText(age)) : 'Not synced yet';
+  el.innerHTML = '<span class="dotlive ' + cls + '"></span>' + esc(txt);
+  el.title = (d.now.lastSync ? 'Last sync ' + d.now.lastSync.replace('T', ' ').substring(0, 16) + '. ' : '') + (on === true ? 'Auto-sync is on (about every 30 minutes).' : (on === false ? 'Auto-sync is OFF.' : ''));
+}
+setInterval(function(){ if (DATA) renderSyncInfo(DATA); }, 60000);
+
+function runSync(silent){
+  var b = $('btnSync'); if (window.__syncing) return;
+  window.__syncing = true; b.disabled = true; b.textContent = 'Syncing…';
+  function done(){ window.__syncing = false; b.disabled = false; b.textContent = '↻ Sync'; }
+  google.script.run.withSuccessHandler(function(){ done(); load(true); })
+    .withFailureHandler(function(e){ done(); if (!silent) alert('Sync failed: ' + (e && e.message ? e.message : e)); load(true); })
+    .syncNow();
+}
+function syncNow(){ runSync(false); }
+
+// If the data is stale (no sync for 20+ minutes), refresh it in the background when the page opens or comes back to the front.
+function maybeAutoSync(d){
+  if (!d || d.now.useStrava === false || !d.now.connected || window.__syncing) return;
+  var age = syncAgeMin(d);
+  var stale = (age === null) ? !d.now.lastSync : age >= AUTO_STALE_MIN;
+  if (!stale || Date.now() - lastAutoTry < 10 * 60000) return;
+  lastAutoTry = Date.now(); runSync(true);
+}
+document.addEventListener('visibilitychange', function(){ if (!document.hidden && DATA){ renderSyncInfo(DATA); maybeAutoSync(DATA); } });
+
+function enableAuto(){
+  google.script.run.withSuccessHandler(function(){ load(true); })
+    .withFailureHandler(function(e){ alert('Could not turn on auto-sync: ' + (e && e.message ? e.message : e)); })
+    .enableAutoSync();
+}
+
+/* ---------- data loading ---------- */
+function showError(e){
+  $('syncInfo').textContent = 'Could not load';
+  $('banner').innerHTML = '<div class="banner bad"><b>Could not load your data.</b> ' + esc(e && e.message ? e.message : e) + '<br><span class="muted small">Check that you ran Training HQ → Set up sheets in the Google Sheet.</span></div>';
+}
+
+var loadTimer = null;
+function load(silent){
+  if (typeof google === 'undefined' || !google.script || !google.script.run){
+    $('syncInfo').textContent = 'Not connected';
+    $('banner').innerHTML = '<div class="banner bad"><b>This page is not running inside your Google script.</b> Opening the HTML file directly shows an empty page. Open your <b>Web app link</b> instead: in Apps Script choose Deploy → Manage deployments and copy the URL that ends in <code>/exec</code>.</div>';
+    return;
+  }
+  if (!silent) $('syncInfo').textContent = 'Loading…';
+  clearTimeout(loadTimer);
+  loadTimer = setTimeout(function(){
+    $('syncInfo').textContent = 'No response';
+    $('banner').innerHTML = '<div class="banner warn"><b>No response from the script after 20 seconds.</b> Check: (1) you ran <b>Training HQ → Set up sheets</b> in the Sheet; (2) you opened the <b>/exec</b> Web app link; (3) you are signed in to only the Google account that owns the script (try a private window); (4) after pasting new code you used <b>Deploy → Manage deployments → New version</b>.</div>';
+  }, 20000);
+  google.script.run.withSuccessHandler(function(d){
+    clearTimeout(loadTimer);
+    if (!d){ showError({ message: 'The script returned no data. Run Training HQ → Set up sheets, then Sync Strava, and reload.' }); return; }
+    try { render(d); if (window.__reopen){ var ro = window.__reopen; window.__reopen = null; openDay(ro); } maybeAutoSync(d); } catch (e) { showError({ message: 'Display problem: ' + (e && e.message ? e.message : e) }); }
+  }).withFailureHandler(function(e){ clearTimeout(loadTimer); showError(e); }).getDashboardData();
+}
+
+
+load();
+</script>
+</body>
+</html>
