@@ -18,6 +18,8 @@
 *.xls
 *.db
 *.sqlite*
+*.geojson
+training-hq-export*.json
 # Generated files
 node_modules/
 dist/

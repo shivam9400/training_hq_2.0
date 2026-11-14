@@ -13,7 +13,9 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:rules": "firebase emulators:exec --config ../firebase.json --project demo-training-hq --only firestore 'vitest run --config vitest.rules.config.ts'",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "format": "prettier --write src e2e scripts *.ts *.js index.html public/manifest.webmanifest",
+    "format:check": "prettier --check src e2e scripts *.ts *.js index.html public/manifest.webmanifest"
   },
   "dependencies": {
     "firebase": "13.3.0",
@@ -33,6 +35,7 @@
     "eslint-plugin-react-hooks": "7.1.1",
     "firebase-tools": "15.36.0",
     "globals": "17.14.0",
+    "prettier": "3.10.1",
     "typescript": "6.0.3",
     "typescript-eslint": "8.72.2",
     "vite": "8.3.8",
