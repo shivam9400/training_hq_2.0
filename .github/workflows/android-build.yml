@@ -37,7 +37,7 @@ jobs:
       - name: Install Android SDK 36
         # The GitHub-hosted Ubuntu runner includes the Android command-line tools
         # and accepted SDK licenses. sdkmanager fails if installation fails.
-        run: '"${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;35.0.0"' 
+        run: '"${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;35.0.0"'
 
       - name: Run unit tests, lint and assemble debug APK
         run: ./gradlew --no-daemon :app:testDebugUnitTest :app:lintDebug :app:assembleDebug
