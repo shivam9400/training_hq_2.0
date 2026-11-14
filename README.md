@@ -1,25 +1,24 @@
-
 # Training HQ 2.0
 
-A private Android fitness and running dashboard.
+Private Android training dashboard project migrating a working Google Apps Script / Google Sheets application to a native Android app backed by Health Connect.
 
-## Goals
-- Direct integration with Android Health Connect
-- Running, walking, strength and yoga tracking
-- Sleep, heart rate and HRV analytics
-- Training plans, race goals and progress
-- Secure synchronization with Google Sheets
-- Offline support and background synchronization
+## Current application
 
-## Technology
-- Kotlin
-- Jetpack Compose
-- Android Health Connect SDK
-- Room
-- WorkManager
-- Google Apps Script / Google Sheets
+`legacy/apps-script/Code.gs` and `legacy/apps-script/Index.html` are the existing implementation used as a **reference**, not a production deployment target. They include day-by-day training plans, check-ins, activity imports from Strava and Health Sync Google Drive exports, and mobile dashboard UI.
 
-## Development
-Build features incrementally using OpenAI Codex and GitHub pull requests.
+The existing Sheets setup stays operational while the Android app is developed. Do not replace its code automatically.
 
-Never commit personal health data, tokens, credentials or signing keys.
+## Target architecture
+
+- Android: Kotlin, Jetpack Compose, Health Connect SDK, Room and WorkManager.
+- Backend: authenticated sync API, secure server-side access to existing Google Sheets / Apps Script.
+- Workout records: preserve source IDs, original and corrected distance, timestamps, activity type and provenance; prevent duplicates.
+- Include strength/yoga/generic TRAINING as well as running/walking and health metrics.
+
+## First milestone
+
+Create a local-only Android application with a dashboard (Today, Plan, Progress, Health), sample data labeled as mock, permission flow and a Health Connect reader for recent workouts. No production write access or live secrets. Add tests and Android Studio build instructions.
+
+## Safety
+
+Do not commit health exports, real GPS tracks, account details, credentials, tokens, production Google Sheet IDs, APK signing keys or runtime logs. Check legacy source before publishing the repository.
