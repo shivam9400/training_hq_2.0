@@ -22,3 +22,14 @@ Create a local-only Android application with a dashboard (Today, Plan, Progress,
 ## Safety
 
 Do not commit health exports, real GPS tracks, account details, credentials, tokens, production Google Sheet IDs, APK signing keys or runtime logs. Check legacy source before publishing the repository.
+
+## Android prototype
+
+Open [`android/`](android/) in Android Studio. The local-only Compose prototype
+provides Today, Plan, Progress and Health with clearly labeled synthetic dashboard
+data and an optional Health Connect exercise-session reader. It does not connect
+to Sheets, Strava or a backend.
+
+- [Build, tests and device checks](android/README.md)
+- [Legacy architecture, Sheets schema and migration analysis](docs/architecture.md)
+- [Validation results and limitations](docs/validation.md)
