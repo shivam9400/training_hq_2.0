@@ -1,21 +1,47 @@
-# Training HQ 2.0 product requirements
+# Training HQ web milestone
 
-## Existing behavior to preserve
-- Google Sheets is the current system of record for training plans, check-ins, goals/races and workout tracking.
-- Existing Apps Script web dashboard: Today, plan, progress, session adjustments.
-- Existing imports: Strava API and Health Sync CSV/TCX exports stored in Google Drive.
-- Workout types: running, walking, strength, yoga and generic TRAINING. A GPS route is not required for valid non-GPS workouts.
-- Display walking and running pace when distance and duration are valid.
-- Existing health exports may have inconsistent summary distances: preserve raw value and validated GPS-derived value with source labels.
+## Implemented scope
 
-## Native Android V1
-- Android app usable independently of Chrome account sessions, with Today, Plan, Progress and Health tabs.
-- Permission-led Health Connect integration, graceful handling of missing data and no permissions.
-- Read recent exercise sessions, duration, distance, HR (where available), sleep, HRV, steps and resting HR when records exist and user permits access.
-- Local cache for resilience; initial iteration uses local data or mock data only.
-- Strong duplicate identification and incremental sync design (implementation later).
+Mobile-first React/TypeScript/Vite PWA at `/training_hq_2.0/` with Today, Plan,
+Progress, Activities, Health and Settings. Dark navy cards, orange actions, teal
+secondary accents and bottom navigation preserve the legacy concepts. Plans have
+multiple independently editable sessions on each date; Run, Race, Strength, Rest,
+Walk, Yoga, generic Training and Other remain distinct. Session duration, targets,
+instructions, Done/Partial/Skipped overrides and daily recovery check-ins are
+editable. Manual workouts and race goals are supported. Empty, loading, offline
+and sanitized error states are explicit.
 
-## Later milestones
-- Authenticated API to existing Sheets, background WorkManager sync, safe import migration, distance-quality checks and running analytics.
-- GPS route access requires user permission and may not be available for all records.
-- Disable Health Sync exports only after native sync is validated and legacy data is safely retained.
+Signed-out demo records are synthetic and labeled MOCK; edits stay in memory.
+Configured Google login opens an empty user workspace rather than copying demo
+records. Firestore stores plans, sessions, workouts, races and metrics exclusively
+under `users/{uid}/...`. Strict security rules deny other accounts and unknown
+fields/paths. Public client configuration is injected at build time. Auth and
+Firestore caches are memory-only. No production Firebase project was provisioned.
+
+Public static PWA resources alone are service-worker cached. The app is usable
+in Samsung Chrome without installing anything. Add to Home screen is optional.
+Cloud reads/writes require connectivity; offline private persistence and
+background synchronization while closed are outside this milestone.
+
+## Legacy invariants retained
+
+Google Sheets remains operational; nothing writes to it. Date+slot multi-session
+identity must not collapse to a date-only document. Manual completion overrides
+remain separate from workout evidence. Partial completion counts half; Rest is
+excluded from session completion. Run-duration thresholds 85%/40% are preserved
+in a tested calculation. Exact source IDs dedupe; cross-source heuristics need
+review, not blind merging. Walking/running pace requires valid distance and time.
+Generic TRAINING never means confirmed strength/yoga; lack of GPS is valid.
+Reported/GPS distance and provenance remain separate, and noisy tracks do not win.
+
+## Planned, not represented as implemented
+
+Production Google Drive OAuth/Picker and CSV/TCX ingestion; incremental import
+manifests and file revisions; automatic workout-plan matching UI and conflict
+resolution; full legacy load/HR-efficiency/checkpoint/badge algorithms; personalized
+HR/HRV baseline settings; richer calendar and plan swaps; persistent encrypted
+health cache. Pure classification/matching/GPS primitives and legacy regression
+tests are present, but they do not constitute a production file importer.
+
+No Android app, paid Strava API, Render, Cloud Functions/Cloud Run billing,
+background worker backend or publicly shared health files is required or enabled.
