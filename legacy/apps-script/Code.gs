@@ -76,6 +76,11 @@ function onOpen() {
     .addItem('4. Sync Strava now', 'syncStravaFromMenu')
     .addItem('5. Auto-sync every 30 minutes', 'installAutoSync')
     .addSeparator()
+    .addItem('Health Sync: 1. Set Drive folder', 'healthConfigureFolder')
+    .addItem('Health Sync: 2. Preview exports', 'healthPreviewMenu')
+    .addItem('Health Sync: 3. Import CSV files', 'healthImportMenu')
+    .addItem('Health Sync: 4. Auto-import every 30 min', 'healthInstallTrigger')
+    .addSeparator()
     .addItem('Build plan from "Plan input"', 'buildPlanFromInput');
   if (!EDITION.simple) m.addItem('Update plan text (keeps logs and your edits)', 'refreshPlanText');
   m.addItem('Check plan for problems', 'checkPlan')
@@ -746,7 +751,12 @@ function effectiveStravaAfter_() {
 
 function syncStravaScheduled() { syncStravaSafe_(); }
 
-function syncNow() { return syncStravaSafe_(); }   // called by the dashboard (Sync button and automatic refresh on open)
+function syncNow() {
+  var result = {};
+  if (CONFIG.useStrava !== false) result.strava = syncStravaSafe_();
+  if (PropertiesService.getScriptProperties().getProperty('HEALTH_FOLDER_ID')) result.health = healthSyncSafe_();
+  return result;
+}   // called by the dashboard (Sync button and automatic refresh on open)
 
 function installSyncTrigger_() {
   ScriptApp.getProjectTriggers().forEach(function (t) {
@@ -907,7 +917,7 @@ function computePlanActuals_(plan, strava, today) {
       out.hr = hrMin ? Math.round(hrSum / hrMin) : '';
       out.maxhr = mx || '';
       if (p.type !== 'Strength' && km > 0) out.pace = fmtPace_(min * 60 / km);
-      out.link = 'https://www.strava.com/activities/' + main[0].id;
+      out.link = main[0].source === 'Health Connect' ? '' : 'https://www.strava.com/activities/' + main[0].id;
     }
     function byMinutes() { var ratio = p.pMin > 0 ? out.min / p.pMin : 1; return ratio >= 0.85 ? 'Done' : (ratio >= 0.4 ? 'Partial' : 'Short'); }
     if (p.iso > today) out.auto = '';
@@ -927,7 +937,7 @@ function computePlanActuals_(plan, strava, today) {
 function applyToPlan_(ss) {
   var sh = ss.getSheetByName('Plan');
   var plan = readPlan_(ss);
-  var strava = readStrava_(ss);
+  var strava = healthMergedActivities_(ss);
   var res = computePlanActuals_(plan, strava, todayIso_());
   var vals = res.map(function (o) { return [o.auto, o.km, o.min, o.hr, o.maxhr, o.pace, o.link]; });
   if (vals.length) {
@@ -975,13 +985,15 @@ function getDashboardData() {
   var ss = getSS_();
   loadConfig_();
   var plan = readPlan_(ss);
-  var strava = readStrava_(ss);
+  var strava = healthMergedActivities_(ss);
   var races = readRaces_(ss);
   var g = readGoals_(ss);
   var props = PropertiesService.getScriptProperties();
   var meta = { lastSync: props.getProperty('LAST_SYNC') || '', connected: !!props.getProperty('REFRESH_TOKEN'),
     nowIso: Utilities.formatDate(new Date(), TZ, "yyyy-MM-dd'T'HH:mm:ss"), autoSync: hasSyncTrigger_(), syncError: props.getProperty('SYNC_ERROR') || '' };
-  return jsonSafe_(buildDashboard_(plan, strava, races, g.goals, g.refs, todayIso_(), meta, { weeks: readWeeksInfo_(ss), tests: readTests_(ss) }));
+  var out = buildDashboard_(plan, strava, races, g.goals, g.refs, todayIso_(), meta, { weeks: readWeeksInfo_(ss), tests: readTests_(ss) });
+  out.health = healthDashboardInfo_(ss, todayIso_());
+  return jsonSafe_(out);
 }
 
 function planSheet_() {
@@ -1169,7 +1181,7 @@ function buildDashboard_(plan, strava, races, goals, refs, today, meta, ctx) {
   // recent activities
   var recent = strava.slice().sort(function (a, b) { return (a.iso + a.time) < (b.iso + b.time) ? 1 : -1; }).slice(0, 8).map(function (a) {
     return { iso: a.iso, time: a.time, name: a.name, sport: a.sport, km: a.km, min: a.min, hr: a.avgHR, maxHR: a.maxHR, elev: a.elev,
-      pace: (isRun_(a) && a.km > 0) ? fmtPace_(a.min * 60 / a.km) : '', link: 'https://www.strava.com/activities/' + a.id };
+      pace: ((isRun_(a) || /walk/i.test(String(a.sport || ''))) && a.km > 0 && a.min > 0) ? fmtPace_(a.min * 60 / a.km) : '', link: a.source === 'Health Connect' ? '' : 'https://www.strava.com/activities/' + a.id, source: a.source || 'Strava' };
   });
 
   // badges
@@ -1262,3 +1274,485 @@ var TESTS = [];
 var GOALS = [];
 var REFS = [];
 Object.keys(EDITION.settings).forEach(function (k) { CONFIG[k] = EDITION.settings[k]; });
+ 
+
+// ======================================================================
+// Health Sync -> Google Drive CSV -> Training HQ (optional integration).
+// Unlike Strava, CSV formats are not standardised. Unrecognized CSVs
+// are reported, NEVER silently guessed. Run Preview first.
+// ======================================================================
+var HEALTH_WORKOUT_HEADERS = ['Key','Date','Start','Name','Sport','Distance km','Moving min','Avg HR','Max HR','Source file','Reported distance km','GPS distance km','Distance source'];
+var HEALTH_METRIC_HEADERS = ['Date','Resting HR','HRV ms','Sleep h','Steps','Calories kcal','VO2max','Source files'];
+var HEALTH_ALIASES = {
+ date:['date','day','recorddate','localdate','startdate','starttime','startdatetime','starttimestamp','datetime','timestamp','time'],
+ start:['start','starttime','startdatetime','starttimestamp','time','datetime'],
+ sport:['sport','sporttype','activitytype','exercisetype','workouttype','type'],
+ name:['name','title','activityname','exercisename','workoutname'],
+ minutes:['movingmin','durationmin','durationminutes','minutes','elapsedminutes','activeminutes','durationmins'],
+ seconds:['durationseconds','movingtime','elapsedtime','durationsec','durationsecs'],
+ duration:['duration','durationms','durationmilliseconds'],
+ km:['distancekm','kilometers','distancekilometers'],
+ meters:['distancem','distancemeters','distanceinmeters'],
+ distance:['distance'],
+ avgHR:['averageheartrate','avgheartrate','avghr','meanheartrate'],
+ maxHR:['maxheartrate','maximumheartrate','maxhr'],
+ rhr:['restingheartrate','restinghr','rhr'],
+ hrv:['heartratevariability','heartratevariabilityrmssd','hrvrmssd','hrvms','hrv'],
+ sleep:['sleephours','totalsleephours','sleepdurationhours','sleepdurationh'],
+ sleepMinutes:['sleepminutes','totalsleepminutes'],
+ sleepSeconds:['sleepseconds','totalsleepseconds'],
+ steps:['steps','stepcount','totalsteps'],
+ calories:['calories','calorieskcal','activecalories','activeenergyburnedkcal','energykcal'],
+ vo2:['vo2max','vo2maximum','maximaloxygenconsumption']
+};
+function healthNorm_(s) { return String(s || '').toLowerCase().replace(/[^a-z0-9]/g,''); }
+function healthCols_(headers) {
+  var cols = {};
+  Object.keys(HEALTH_ALIASES).forEach(function(k) {
+    var options = HEALTH_ALIASES[k];
+    for (var j = 0; j < options.length; j++) {
+      var idx = headers.map(healthNorm_).indexOf(options[j]);
+      if (idx >= 0) { cols[k] = idx; break; }
+    }
+  });
+  return cols;
+}
+function healthV_(row, cols, k) { return cols[k] === undefined ? '' : String(row[cols[k]] || '').trim(); }
+function healthNum_(x) {
+  var s = String(x || '').trim().replace(/,/g,'');
+  if (!s || !/^-?\d+(?:\.\d+)?$/.test(s)) return null;
+  var n = Number(s); return isFinite(n) ? n : null;
+}
+function healthISO_(value) {
+  var s = String(value || '').trim();
+  var m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return '';
+  var iso = m[1]+'-'+m[2]+'-'+m[3];
+  var d = new Date(iso+'T00:00:00Z');
+  return !isNaN(d.getTime()) && d.toISOString().slice(0,10) === iso ? iso : '';
+}
+function healthTime_(value) {
+  var s = String(value || '');
+  var m = s.match(/(?:T|\s)(\d{2}:\d{2})/);
+  return m ? m[1] : '';
+}
+function healthSport_(s) {
+  s = String(s || '').toLowerCase();
+  if (/run|jogg|treadmill/.test(s)) return 'Run';
+  if (/strength|weight|resistance|gym|functional|circuit/.test(s)) return 'WeightTraining';
+  if (/yoga|pilates|stretch/.test(s)) return 'Yoga';
+  if (/cycl|bike|spin/.test(s)) return 'Ride';
+  if (/walk|hik/.test(s)) return 'Walk';
+  if (/swim/.test(s)) return 'Swim';
+  // Health Sync exports generic exercise with the literal activity type TRAINING.
+  // Keep it as a generic workout rather than assuming it was weight training.
+  if (/training|workout|exercise|fitness/.test(s)) return 'Workout';
+  return '';
+}
+function healthFileKind_(name, cols) {
+  var f = healthNorm_(name), workout = /activity|exercise|workout|training|session/.test(f);
+  // Only treat a file as a workout file with sport + duration information,
+  // or when its name says it's workouts and it has a duration.
+  if ((cols.sport !== undefined || workout) && (cols.minutes !== undefined || cols.seconds !== undefined || cols.duration !== undefined)) return 'workout';
+  if (['rhr','hrv','sleep','sleepMinutes','sleepSeconds','steps','calories','vo2'].some(function(k){return cols[k] !== undefined;})) return 'metrics';
+  // Some exporters call a single value column 'Value' and describe its metric in the filename.
+  if (cols.date !== undefined && (cols.value !== undefined || /restingheartrate|heartratevariability|hrv|sleep|steps|vo2max/.test(f))) return 'unknown-single-value';
+  return 'unknown';
+}
+function healthSheet_(ss, name, headers) {
+  var sh = ss.getSheetByName(name);
+  if (!sh) {
+    sh = ss.insertSheet(name);
+    sh.setFrozenRows(1);
+  }
+  // Refresh header when new columns are added to an existing import sheet.
+  sh.getRange(1,1,1,headers.length).setValues([headers]).setFontWeight('bold');
+  return sh;
+}
+function healthFolder_() {
+  var id = PropertiesService.getScriptProperties().getProperty('HEALTH_FOLDER_ID');
+  if (!id) throw new Error('Set the Drive folder first: Training HQ -> Health Sync: 1. Set Drive folder');
+  return DriveApp.getFolderById(id);
+}
+function healthConfigureFolder() {
+  var ui = SpreadsheetApp.getUi();
+  var r = ui.prompt('Health Sync Google Drive folder', 'Paste the URL or folder ID of the PRIVATE folder where Health Sync exports CSV files. You must own or have access to the folder.', ui.ButtonSet.OK_CANCEL);
+  if (r.getSelectedButton() !== ui.Button.OK) return;
+  var s = r.getResponseText().trim();
+  var m = s.match(/\/folders\/([A-Za-z0-9_-]+)/);
+  var id = m ? m[1] : s;
+  try { var f = DriveApp.getFolderById(id); f.getName(); }
+  catch(e) { ui.alert('Cannot open that folder. Check the Google account and URL. '+String(e.message || e)); return; }
+  PropertiesService.getScriptProperties().setProperty('HEALTH_FOLDER_ID',id);
+  ui.alert('Folder saved. Now choose Health Sync: 2. Preview exports.');
+}
+// Search Health Sync's automatically created subfolders as well as the selected folder.
+function healthExportFiles_() {
+  var queue=[healthFolder_()], depth=[0], all=[], scanned=0;
+  while(queue.length && scanned<80 && all.length<600) {
+    var folder=queue.shift(), level=depth.shift(); scanned++;
+    var items=folder.getFiles();
+    while(items.hasNext() && all.length<600) {
+      var file=items.next(), name=file.getName();
+      if (/\.(csv|tcx)$/i.test(name)) all.push(file);
+    }
+    if(level<4) {
+      var sub=folder.getFolders();
+      while(sub.hasNext() && queue.length<80) {queue.push(sub.next());depth.push(level+1);}
+    }
+  }
+  all.sort(function(a,b){return b.getLastUpdated().getTime()-a.getLastUpdated().getTime();});
+  return all;
+}
+function healthFiles_() {
+  return healthExportFiles_().filter(function(f){return /\.csv$/i.test(f.getName()) && f.getSize()<=3000000;}).slice(0,200);
+}
+function healthPreviewMenu() {
+  var ui = SpreadsheetApp.getUi();
+  try {
+    var files = healthFiles_();
+    if (!files.length) {ui.alert('No CSV files found in the selected Drive folder or its subfolders. Confirm Health Sync exported CSV files and this Google account can read them.');return;}
+    var lines = [];
+    files.slice(0,12).forEach(function(file) {
+      try {
+        var csv = Utilities.parseCsv(file.getBlob().getDataAsString('UTF-8').replace(/^\uFEFF/,''));
+        var h = csv.length ? csv[0] : [], cols = healthCols_(h);
+        lines.push(file.getName()+' ['+healthFileKind_(file.getName(),cols)+']');
+        lines.push('  Columns: '+h.slice(0,18).join(' | ').slice(0,500));
+      } catch(e) { lines.push(file.getName()+': '+String(e)); }
+    });
+    ui.alert('Health Sync CSV preview ('+files.length+' files found)',lines.join('\n').slice(0,7500),ui.ButtonSet.OK);
+  } catch(e) {ui.alert('Preview failed: '+String(e.message || e));}
+}
+function healthDuration_(row,cols) {
+  var m = healthNum_(healthV_(row,cols,'minutes'));
+  if (m !== null) return m;
+  var s = healthNum_(healthV_(row,cols,'seconds'));
+  if (s !== null) return s/60;
+  var raw = healthV_(row,cols,'duration');
+  var a = raw.match(/^(\d{1,3}):(\d{2}):(\d{2})$/);
+  if (a) return +a[1]*60+(+a[2])+(+a[3])/60;
+  // The unit for a plain 'duration' value is ambiguous. Do not assume seconds.
+  return null;
+}
+function healthParseCsv_(file, workouts, daily, report) {
+  var content = file.getBlob().getDataAsString('UTF-8').replace(/^\uFEFF/,'');
+  var rows = Utilities.parseCsv(content);
+  if (rows.length < 2) return;
+  var cols = healthCols_(rows[0]), kind = healthFileKind_(file.getName(),cols), accepted = 0;
+  if (kind === 'unknown' || kind === 'unknown-single-value' || cols.date === undefined) {
+    report.push(['SKIP',file.getName(),kind,'Unrecognized columns: '+rows[0].join(' | ').slice(0,700)]); return;
+  }
+  rows.slice(1,10001).forEach(function(row) {
+    if (!row.length) return;
+    var iso = healthISO_(healthV_(row,cols,'date'));
+    if (!iso) return;
+    if (kind === 'workout') {
+      var sportRaw = healthV_(row,cols,'sport') || healthV_(row,cols,'name');
+      var sport = healthSport_(sportRaw);
+      var min = healthDuration_(row,cols);
+      if (!sport || min === null || min <= 0 || min > 1440) return;
+      var start = healthTime_(healthV_(row,cols,'start') || healthV_(row,cols,'date'));
+      // Reject unknown units in generic distance: no unsafe assumptions.
+      var km = healthNum_(healthV_(row,cols,'km'));
+      var meters = healthNum_(healthV_(row,cols,'meters'));
+      if (km === null && meters !== null) km = meters/1000;
+      if (km === null) km = 0;
+      if (km < 0 || km > 500) return;
+      var avg = healthNum_(healthV_(row,cols,'avgHR'));
+      var max = healthNum_(healthV_(row,cols,'maxHR'));
+      var name = healthV_(row,cols,'name') || sportRaw || sport;
+      var key = [iso,start,sport,Math.round(min),Math.round(km*10)/10].join('|');
+      workouts[key] = [key,iso,start,name,sport,Math.round(km*100)/100,Math.round(min*10)/10,avg||'',max||'',file.getName()];
+      accepted++;
+    } else {
+      if (!daily[iso]) daily[iso] = { iso:iso, files:{} };
+      var d=daily[iso]; d.files[file.getName()] = true;
+      [['rhr','rhr'],['hrv','hrv'],['sleep','sleep'],['steps','steps'],['calories','calories'],['vo2','vo2']].forEach(function(pair) {
+        var n = healthNum_(healthV_(row,cols,pair[0]));
+        if (n !== null && n >= 0) d[pair[1]] = n;
+      });
+      var sm = healthNum_(healthV_(row,cols,'sleepMinutes'));
+      var ss = healthNum_(healthV_(row,cols,'sleepSeconds'));
+      if (sm !== null) d.sleep = sm/60;
+      else if (ss !== null) d.sleep = ss/3600;
+      accepted++;
+    }
+  });
+  report.push(['READ',file.getName(),kind,accepted+' rows accepted']);
+}
+function healthReadWorkouts_(ss) {
+  var sh=ss.getSheetByName('HealthWorkouts');
+  if (!sh || sh.getLastRow()<2) return [];
+  return sh.getRange(2,1,sh.getLastRow()-1,10).getValues().filter(function(r){return r[1];}).map(function(r){
+    return {id:'health:'+r[0],iso:toIso_(r[1]),time:String(r[2]||''),name:r[3],sport:r[4],km:Number(r[5])||0,min:Number(r[6])||0,avgHR:num_(r[7]),maxHR:num_(r[8]),elev:0,effort:null,speed:null,source:'Health Connect'};
+  });
+}
+function healthMergedActivities_(ss) {
+  var strava=readStrava_(ss), health=healthReadWorkouts_(ss);
+  // Prefer Strava if it has essentially the same workout, otherwise include Health Connect.
+  health.forEach(function(h) {
+    var dup=strava.some(function(s){
+      if (s.iso!==h.iso) return false;
+      var sameKind = isRun_(s) === isRun_(h) && (isRun_(h) || healthSport_(s.sport)===h.sport);
+      var sameTime = s.time && h.time ? Math.abs((+s.time.slice(0,2)*60 + +s.time.slice(3,5))-(+h.time.slice(0,2)*60 + +h.time.slice(3,5)))<=15 : false;
+      var durationMatch = Math.abs(s.min-h.min) <= Math.max(3,0.15*h.min);
+      return sameKind && durationMatch && sameTime;
+    });
+    if (!dup) strava.push(h);
+  });
+  return strava;
+}
+function healthFillCheckins_(ss, daily) {
+  var sh = ss.getSheetByName('Plan'); if(!sh || sh.getLastRow()<2) return;
+  var rows=sh.getRange(2,1,sh.getLastRow()-1,1).getValues();
+  rows.forEach(function(r,i) {
+    var d=daily[toIso_(r[0])]; if(!d) return;
+    [[COL.RHR,'rhr'],[COL.HRV,'hrv'],[COL.SLEEP,'sleep']].forEach(function(x){
+      var val=d[x[1]]; if (val===undefined || val===null) return;
+      var cell=sh.getRange(i+2,x[0]);
+      if (cell.isBlank()) cell.setValue(Math.round(val*10)/10);
+    });
+  });
+}
+function healthImport_() {
+  var files=healthFiles_();
+  if(!files.length) throw new Error('No CSV files in the selected Google Drive folder.');
+  var report=[], workouts={}, daily={};
+  files.forEach(function(file){
+    try {healthParseCsv_(file,workouts,daily,report);}
+    catch(e){report.push(['ERROR',file.getName(),'CSV parse error',String(e.message || e).slice(0,600)]);}
+  });
+  var ss=getSS_(), wsh=healthSheet_(ss,'HealthWorkouts',HEALTH_WORKOUT_HEADERS), msh=healthSheet_(ss,'HealthMetrics',HEALTH_METRIC_HEADERS),
+      rsh=healthSheet_(ss,'HealthImportLog',['Status','File','Category','Details']);
+  var wr=Object.keys(workouts).sort().map(function(k){return workouts[k];});
+  var mr=Object.keys(daily).sort().map(function(k){var d=daily[k];return [k,d.rhr||'',d.hrv||'',d.sleep||'',d.steps||'',d.calories||'',d.vo2||'',Object.keys(d.files).join(', ')];});
+  // Only replace an existing import if there are usable records. Unknown formats remain in preview/log.
+  if (wr.length) {if(wsh.getLastRow()>1)wsh.getRange(2,1,wsh.getLastRow()-1,10).clearContent();wsh.getRange(2,1,wr.length,10).setValues(wr);}
+  if (mr.length) {if(msh.getLastRow()>1)msh.getRange(2,1,msh.getLastRow()-1,8).clearContent();msh.getRange(2,1,mr.length,8).setValues(mr);}
+  if(rsh.getLastRow()>1)rsh.getRange(2,1,rsh.getLastRow()-1,4).clearContent();
+  if(report.length)rsh.getRange(2,1,report.length,4).setValues(report);
+  healthFillCheckins_(ss,daily);
+  applyToPlan_(ss);
+  PropertiesService.getScriptProperties().setProperty('HEALTH_LAST_SYNC',Utilities.formatDate(new Date(),TZ,"yyyy-MM-dd'T'HH:mm:ss"));
+  return {files:files.length,workouts:wr.length,metricDays:mr.length,skipped:report.filter(function(x){return x[0]!=='READ';}).length};
+}
+function healthSyncSafe_() {
+  var lock=LockService.getScriptLock(); if(!lock.tryLock(15000))throw new Error('Import already running');
+  try {var r=healthImport_();PropertiesService.getScriptProperties().deleteProperty('HEALTH_ERROR');return r;}
+  catch(e){PropertiesService.getScriptProperties().setProperty('HEALTH_ERROR',String(e.message||e).slice(0,250));throw e;}
+  finally {lock.releaseLock();}
+}
+function healthImportMenu(){
+  var ui=SpreadsheetApp.getUi();
+  try {var r=healthSyncSafe_();ui.alert('Health Sync imported',r.files+' files scanned; '+r.workouts+' workouts; '+r.metricDays+' days of metrics; '+r.skipped+' unsupported files. Check HealthImportLog and HealthMetrics tabs.',ui.ButtonSet.OK);}
+  catch(e){ui.alert('Health Sync import failed: '+String(e.message||e));}
+}
+function healthSyncScheduled(){ if(PropertiesService.getScriptProperties().getProperty('HEALTH_FOLDER_ID')) healthSyncSafe_(); }
+function healthInstallTrigger(){
+  ScriptApp.getProjectTriggers().forEach(function(t){if(t.getHandlerFunction()==='healthSyncScheduled')ScriptApp.deleteTrigger(t);});
+  ScriptApp.newTrigger('healthSyncScheduled').timeBased().everyMinutes(30).create();
+  SpreadsheetApp.getUi().alert('Health Sync importer scheduled approximately every 30 minutes.');
+}
+function healthDashboardInfo_(ss,iso){
+  var props=PropertiesService.getScriptProperties(),sh=ss.getSheetByName('HealthMetrics'), today={};
+  if(sh && sh.getLastRow()>1){
+    var all=sh.getRange(2,1,sh.getLastRow()-1,7).getValues();
+    all.forEach(function(r){if(toIso_(r[0])===iso) today={rhr:num_(r[1]),hrv:num_(r[2]),sleep:num_(r[3]),steps:num_(r[4]),calories:num_(r[5]),vo2:num_(r[6])};});
+  }
+  var wh=ss.getSheetByName('HealthWorkouts');
+  return {configured:!!props.getProperty('HEALTH_FOLDER_ID'),lastSync:props.getProperty('HEALTH_LAST_SYNC')||'',error:props.getProperty('HEALTH_ERROR')||'',today:today,workouts:wh?Math.max(0,wh.getLastRow()-1):0};
+}
+
+
+// =====================================================================
+// Health Sync exports: verified format of Nothing SmartCenter (Nov 2026)
+// Supports dotted dates, workout summary CSV, daily raw HR CSV, TCX HR/GPS.
+// Import only CSV + TCX; do not claim that FIT is decoded.
+// =====================================================================
+var HEALTH_HR_HEADERS=['Date','Local time','Heart rate','Source file','Source app'];
+var HEALTH_TRACK_HEADERS=['Activity key','Date','Local time','Elapsed sec','Latitude','Longitude','Heart rate','Source file'];
+function healthISO_(v){
+  var s=String(v||'').trim(),m=s.match(/^(\d{4})[.\/-](\d{2})[.\/-](\d{2})/);
+  if(!m)return '';
+  var iso=m[1]+'-'+m[2]+'-'+m[3], d=new Date(iso+'T00:00:00Z');
+  return !isNaN(d.getTime()) && d.toISOString().slice(0,10)===iso ? iso : '';
+}
+function healthTime_(v){
+  var s=String(v||''),m=s.match(/(?:T|\s)(\d{2}:\d{2})(?::\d{2})?/);
+  return m?m[1]:(/^\d{2}:\d{2}/.test(s)?s.slice(0,5):'');
+}
+function healthCols_(headers){
+  var cols={},n=headers.map(healthNorm_);
+  Object.keys(HEALTH_ALIASES).forEach(function(k){
+    for(var j=0;j<HEALTH_ALIASES[k].length;j++){
+      var idx=n.indexOf(HEALTH_ALIASES[k][j]);if(idx>=0){cols[k]=idx;break;}
+    }
+  });
+  var add={sport:['activitytype'],name:['activityname'],seconds:['activetime','elapsedtime'],
+    km:['distancekm'],avgHR:['averageheartrate'],maxHR:['maxheartrate'],
+    heartRate:['heartrate'],source:['source','sourceapp'], time:['time'],
+    workoutSteps:['steps'], workoutCalories:['calorieskcal']};
+  Object.keys(add).forEach(function(k){if(cols[k]!==undefined)return;for(var i=0;i<add[k].length;i++){var idx=n.indexOf(add[k][i]);if(idx>=0){cols[k]=idx;break;}}});
+  return cols;
+}
+function healthFileKind_(name,cols){
+  if(cols.heartRate!==undefined && cols.date!==undefined && cols.sport===undefined) return 'heart-rate';
+  if(cols.sport!==undefined && (cols.seconds!==undefined||cols.minutes!==undefined||cols.duration!==undefined))return 'workout';
+  if(['rhr','hrv','sleep','sleepMinutes','sleepSeconds','steps','calories','vo2'].some(function(k){return cols[k]!==undefined;}))return 'metrics';
+  return 'unknown';
+}
+function healthDuration_(row,cols){
+  var m=healthNum_(healthV_(row,cols,'minutes'));if(m!==null)return m;
+  var sec=healthNum_(healthV_(row,cols,'seconds'));if(sec!==null)return sec/60;
+  var raw=healthV_(row,cols,'duration'),a=raw.match(/^(\d{1,3}):(\d{2}):(\d{2})$/);
+  return a?+a[1]*60+ +a[2]+ +a[3]/60:null;
+}
+function healthParseCsv_(file,workouts,daily,report,hr){
+  var rows=Utilities.parseCsv(file.getBlob().getDataAsString('UTF-8').replace(/^\uFEFF/,''));
+  if(rows.length<2)return;
+  var cols=healthCols_(rows[0]),kind=healthFileKind_(file.getName(),cols),accepted=0;
+  if(kind==='unknown'||cols.date===undefined){report.push(['SKIP',file.getName(),kind,'Columns: '+rows[0].join(' | ').slice(0,700)]);return;}
+  rows.slice(1,100001).forEach(function(row){
+    var dateText=healthV_(row,cols,'date'),iso=healthISO_(dateText);if(!iso)return;
+    if(kind==='heart-rate'){
+      var bpm=healthNum_(healthV_(row,cols,'heartRate'));
+      if(bpm===null||bpm<25||bpm>250)return;
+      var timeMatch=String(dateText).match(/(?:T|\s)(\d{2}:\d{2}:\d{2})/);
+      var fullTime=timeMatch?timeMatch[1]:(healthV_(row,cols,'time')||healthTime_(dateText));
+      var key=[iso,fullTime,bpm,healthV_(row,cols,'source')].join('|');
+      hr[key]=[iso,fullTime,bpm,file.getName(),healthV_(row,cols,'source')];accepted++;return;
+    }
+    if(kind==='workout'){
+      var sportRaw=healthV_(row,cols,'sport')||healthV_(row,cols,'name'),sport=healthSport_(sportRaw),min=healthDuration_(row,cols);
+      if(!sport||min===null||min<=0||min>1440)return;
+      var start=healthTime_(dateText)||healthTime_(healthV_(row,cols,'time'));
+      var km=healthNum_(healthV_(row,cols,'km'));
+      if(km===null){var meters=healthNum_(healthV_(row,cols,'meters'));if(meters!==null)km=meters/1000;}
+      if(km===null)km=0;if(km<0||km>500)return;
+      var avg=healthNum_(healthV_(row,cols,'avgHR')),max=healthNum_(healthV_(row,cols,'maxHR'));
+      var title=healthV_(row,cols,'name');if(!title||title.toLowerCase()==='null')title=sportRaw;
+      var key=[iso,start,sport,Math.round(min)].join('|');
+      workouts[key]=[key,iso,start,title,sport,Math.round(km*1000)/1000,Math.round(min*100)/100,avg===null?'':avg,max===null?'':max,Math.round(km*1000)/1000,'','Reported (CSV)'];
+      accepted++;return;
+    }
+    if(!daily[iso])daily[iso]={iso:iso,files:{}};
+    var d=daily[iso];d.files[file.getName()]=true;
+    [['rhr','rhr'],['hrv','hrv'],['sleep','sleep'],['steps','steps'],['calories','calories'],['vo2','vo2']].forEach(function(pair){
+      var n=healthNum_(healthV_(row,cols,pair[0]));if(n!==null&&n>=0)d[pair[1]]=n;
+    });
+    var sm=healthNum_(healthV_(row,cols,'sleepMinutes')),ss=healthNum_(healthV_(row,cols,'sleepSeconds'));
+    if(sm!==null)d.sleep=sm/60;else if(ss!==null)d.sleep=ss/3600;
+    accepted++;
+  });
+  report.push(['READ',file.getName(),kind,accepted+' accepted rows']);
+}
+function healthReadTCX_(file,workouts,track,report){
+  try{
+    var root=XmlService.parse(file.getBlob().getDataAsString('UTF-8')).getRootElement(),ns=root.getNamespace();
+    var activities=root.getChild('Activities',ns);if(!activities)return;
+    var as=activities.getChildren('Activity',ns),count=0;
+    as.forEach(function(act){
+      var id=act.getChildText('Id',ns),when=new Date(id),sport=healthSport_(act.getAttribute('Sport')?act.getAttribute('Sport').getValue():'');
+      if(isNaN(when.getTime())||!sport)return;
+      var iso=Utilities.formatDate(when,TZ,'yyyy-MM-dd'),start=Utilities.formatDate(when,TZ,'HH:mm');
+      var laps=act.getChildren('Lap',ns),secs=0,meters=0,avg='',max='',cal=0;
+      laps.forEach(function(l){secs+=Number(l.getChildText('TotalTimeSeconds',ns))||0;meters+=Number(l.getChildText('DistanceMeters',ns))||0;cal+=Number(l.getChildText('Calories',ns))||0;
+        var a=l.getChild('AverageHeartRateBpm',ns),m=l.getChild('MaximumHeartRateBpm',ns);
+        if(a)avg=Number(a.getChildText('Value',ns))||avg;if(m)max=Number(m.getChildText('Value',ns))||max;
+      });
+      if(!secs)return;
+      var key=[iso,start,sport,Math.round(secs/60)].join('|');
+      // Match the CSV by time/sport/duration, NOT by potentially erroneous distance.
+      if(!workouts[key])workouts[key]=[key,iso,start,sport,sport,Math.round(meters)/1000,Math.round(secs/60*100)/100,avg,max,file.getName(),Math.round(meters)/1000,'','Reported (TCX)'];
+      laps.forEach(function(l){l.getChildren('Track',ns).forEach(function(t){t.getChildren('Trackpoint',ns).forEach(function(pt){
+        var time=pt.getChildText('Time',ns);if(!time)return;
+        var d=new Date(time);if(isNaN(d.getTime()))return;
+        var pos=pt.getChild('Position',ns),lat='',lon='';if(pos){lat=pos.getChildText('LatitudeDegrees',ns)||'';lon=pos.getChildText('LongitudeDegrees',ns)||'';}
+        var hrNode=pt.getChild('HeartRateBpm',ns),bpm=hrNode?Number(hrNode.getChildText('Value',ns)):0;
+        // Track file can contain GPS fixes with no HR; don't infer values.
+        var sec=Math.max(0,Math.round((d.getTime()-when.getTime())/1000));
+        var pointKey=key+'|'+sec;
+        track[pointKey]=[key,iso,Utilities.formatDate(d,TZ,'HH:mm:ss'),sec,lat===''?'':Number(lat),lon===''?'':Number(lon),bpm>0?bpm:'',file.getName()];
+        count++;
+      });});});
+    });
+    report.push(['READ',file.getName(),'tcx',count+' samples']);
+  }catch(e){report.push(['ERROR',file.getName(),'tcx',String(e.message||e).slice(0,600)]);}
+}
+// GPS validation for Health Sync CSV + TCX workout exports.
+// Original summary distance is preserved; GPS wins only on reliable tracks
+// when the reported distance differs by more than 10%.
+function healthHaversineM_(a,b) {
+  var rad=Math.PI/180, p1=a[4]*rad, p2=b[4]*rad;
+  var dp=(b[4]-a[4])*rad, dl=(b[5]-a[5])*rad;
+  var q=Math.sin(dp/2)*Math.sin(dp/2)+Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)*Math.sin(dl/2);
+  return 12742000*Math.atan2(Math.sqrt(q),Math.sqrt(Math.max(0,1-q)));
+}
+function healthCorrectGPSDistances_(workouts,track,report) {
+  var grouped={};
+  Object.keys(track).forEach(function(k){
+    var p=track[k], activityKey=p[0];
+    if(!grouped[activityKey])grouped[activityKey]=[];
+    if(typeof p[4]==='number' && typeof p[5]==='number' &&
+       isFinite(p[4]) && isFinite(p[5]) && Math.abs(p[4])<=90 && Math.abs(p[5])<=180 &&
+       !(p[4]===0 && p[5]===0))grouped[activityKey].push(p);
+  });
+  Object.keys(workouts).forEach(function(key){
+    var row=workouts[key], samples=grouped[key]||[];
+    if(row.length<13){row[10]=row[5];row[11]='';row[12]='Reported';}
+    if(samples.length<20)return;
+    samples.sort(function(a,b){return a[3]-b[3];});
+    var sumM=0, accepted=0, jumps=0, first=samples[0], last=samples[0];
+    var walk=/walk/i.test(String(row[4])), run=/run|jog/i.test(String(row[4]));
+    if(!walk && !run)return;
+    var maxMps=walk?4.5:9; // reject implausibly fast GPS jumps
+    samples.forEach(function(p,i){
+      if(!i)return;
+      var dt=(p[3]-last[3]);
+      if(dt<=0)return;
+      var meters=healthHaversineM_(last,p);
+      // Reject jumps without adding their distance, but continue at the next fix.
+      if(meters/dt>maxMps || meters>1000){jumps++;last=p;return;}
+      sumM+=meters;accepted++;last=p;
+    });
+    var coverage=(samples[samples.length-1][3]-first[3])/(Number(row[6])*60);
+    var gpsKm=Math.round(sumM/10)/100; // 0.01 km precision
+    var reported=Number(row[10]);
+    row[11]=gpsKm;
+    if(accepted<20 || coverage<0.7 || coverage>1.2 || jumps>samples.length*0.1 || gpsKm<0.2 || gpsKm>200){
+      report.push(['CHECK GPS',String(row[9]),'gps',key+': GPS not reliable enough; kept reported distance']);
+      return;
+    }
+    if(!reported || Math.abs(reported-gpsKm)/reported>0.10){
+      row[5]=gpsKm;row[12]='GPS validated (TCX)';
+      report.push(['GPS CORRECTED',String(row[9]),'distance',key+': reported '+reported+' km; GPS '+gpsKm+' km']);
+    }else row[12]='Reported (GPS cross-checked)';
+  });
+}
+function healthImport_(){
+  var files=healthFiles_(),tcx=healthExportFiles_().filter(function(f){return /\.tcx$/i.test(f.getName())&&f.getSize()<=6000000;}).slice(0,150);
+  if(!files.length&&!tcx.length)throw new Error('No Health Sync CSV or TCX files in selected folder.');
+  var report=[],workouts={},daily={},hr={},track={};
+  files.forEach(function(f){try{healthParseCsv_(f,workouts,daily,report,hr);}catch(e){report.push(['ERROR',f.getName(),'csv',String(e.message||e)]);}});
+  tcx.forEach(function(f){healthReadTCX_(f,workouts,track,report);});
+  healthCorrectGPSDistances_(workouts,track,report);
+  var ss=getSS_();
+  function put(name,headers,rows){var sh=healthSheet_(ss,name,headers);if(sh.getLastRow()>1)sh.getRange(2,1,sh.getLastRow()-1,headers.length).clearContent();
+    if(rows.length)sh.getRange(2,1,rows.length,headers.length).setValues(rows);return sh;}
+  var wr=Object.keys(workouts).sort().map(function(k){return workouts[k];});
+  var mr=Object.keys(daily).sort().map(function(k){var d=daily[k];return [k,d.rhr===undefined?'':d.rhr,d.hrv===undefined?'':d.hrv,d.sleep===undefined?'':d.sleep,d.steps===undefined?'':d.steps,d.calories===undefined?'':d.calories,d.vo2===undefined?'':d.vo2,Object.keys(d.files).join(', ')];});
+  var hrRows=Object.keys(hr).sort().map(function(k){return hr[k];}),trackRows=Object.keys(track).sort().map(function(k){return track[k];});
+  put('HealthWorkouts',HEALTH_WORKOUT_HEADERS,wr);put('HealthMetrics',HEALTH_METRIC_HEADERS,mr);
+  put('HealthHeartRate',HEALTH_HR_HEADERS,hrRows);put('HealthTrackpoints',HEALTH_TRACK_HEADERS,trackRows);
+  put('HealthImportLog',['Status','File','Category','Details'],report);
+  healthFillCheckins_(ss,daily);
+  applyToPlan_(ss);
+  PropertiesService.getScriptProperties().setProperty('HEALTH_LAST_SYNC',Utilities.formatDate(new Date(),TZ,"yyyy-MM-dd'T'HH:mm:ss"));
+  return {files:files.length+tcx.length,workouts:wr.length,metricDays:mr.length,heartRate:hrRows.length,trackpoints:trackRows.length,skipped:report.filter(function(x){return x[0]!=='READ';}).length};
+}
+function healthImportMenu(){
+  var ui=SpreadsheetApp.getUi();try{var r=healthSyncSafe_();
+    ui.alert('Health Sync imported',r.files+' files; '+r.workouts+' workouts; '+r.trackpoints+' trackpoints; '+r.heartRate+' daily HR samples; '+r.metricDays+' metric days. See HealthImportLog for details.',ui.ButtonSet.OK);
+  }catch(e){ui.alert('Health Sync import failed: '+String(e.message||e));}
+}
