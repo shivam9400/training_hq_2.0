@@ -495,14 +495,14 @@ it("imports incrementally with idempotent retry and cancellation/recovery at a b
       assertOwner: () => {},
       signal: controller.signal,
       onProgress: (n) => {
-        if (n >= 2) controller.abort();
+        if (n >= 1) controller.abort();
       },
     }),
   ).rejects.toThrow(/^Import cancelled/);
   const partial = await getDocs(
     query(collection(a, "users/user-a/workouts"), limit(200)),
   );
-  expect(partial.size).toBe(2);
+  expect(partial.size).toBe(1);
   await saveActivityImport(a, "user-a", preview, { assertOwner: () => {} });
   const all = await getDocs(
     query(collection(a, "users/user-a/workouts"), limit(200)),
