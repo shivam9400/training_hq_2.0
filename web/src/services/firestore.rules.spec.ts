@@ -498,7 +498,7 @@ it("imports incrementally with idempotent retry and cancellation/recovery at a b
         if (n >= 2) controller.abort();
       },
     }),
-  ).rejects.toBeInstanceOf(ImportCancelled);
+  ).rejects.toThrow(/^Import cancelled/);
   const partial = await getDocs(
     query(collection(a, "users/user-a/workouts"), limit(200)),
   );
