@@ -429,3 +429,212 @@ it("protects a status-only edit made after a source-change preview", async () =>
   expect(stored?.status).toBe("Done");
   expect(stored?.instructions).toBe(existing.instructions);
 });
+
+import { processActivities } from "./activities/pipeline";
+import { activityPreview } from "./activities/preview";
+import { saveActivityImport } from "./activities/persistence";
+import { confirmMatch } from "./activities/matching";
+import {
+  syntheticCsv as activityCsv,
+  wire as activityBytes,
+  START as activityStart,
+} from "./activities/fixtures";
+async function syntheticActivityPreview(uid = "user-a", count = 1) {
+  const parsed = await processActivities(
+    Array.from({ length: count }, (_, i) => ({
+      name: `synthetic-${i}.csv`,
+      bytes: activityBytes(
+        activityCsv(
+          "Walking",
+          new Date(activityStart + i * 86400000).toISOString(),
+          `synthetic-${i}`,
+        ),
+      ),
+    })),
+  );
+  return activityPreview(uid, parsed.activities, []);
+}
+it("stores strict imported activity summaries and denies cross-account CRUD/raw detail payloads", async () => {
+  const a = modular("user-a"),
+    b = modular("user-b"),
+    preview = await syntheticActivityPreview("user-b");
+  await assertFails(
+    saveActivityImport(a, "user-b", preview, { assertOwner: () => {} }),
+  );
+  await saveActivityImport(b, "user-b", preview, { assertOwner: () => {} });
+  const w = preview.rows[0].incoming,
+    foreign = doc(a, "users/user-b/workouts", w.id);
+  await assertFails(getDoc(foreign));
+  await assertFails(updateDoc(foreign, w));
+  await assertFails(deleteDoc(foreign));
+  await assertFails(setDoc(foreign, w));
+  const own = doc(a, "users/user-a/workouts", w.id);
+  await assertSucceeds(setDoc(own, w));
+  for (const patch of [
+    { track: [{ latitude: 1, longitude: 1 }] },
+    { details: { ...w.details, rawHr: [120] } },
+    { details: { ...w.details, movingSeconds: 99999 } },
+    { details: { ...w.details, calories: -1 } },
+    { provenance: { ...w.provenance, aliases: ["not-a-hash"] } },
+    { matchSessionId: "users/user-b/sessions/other" },
+  ])
+    await assertFails(setDoc(own, { ...w, ...patch }));
+  await assertSucceeds(
+    setDoc(doc(a, "users/user-a/workouts/old-manual"), {
+      ...fixtures.workouts,
+      id: "old-manual",
+    }),
+  );
+});
+it("imports incrementally with idempotent retry and cancellation/recovery at a bounded chunk", async () => {
+  const a = modular("user-a"),
+    preview = await syntheticActivityPreview("user-a", 25),
+    controller = new AbortController();
+  await expect(
+    saveActivityImport(a, "user-a", preview, {
+      assertOwner: () => {},
+      signal: controller.signal,
+      onProgress: (n) => {
+        if (n >= 10) controller.abort();
+      },
+    }),
+  ).rejects.toBeInstanceOf(ImportCancelled);
+  const partial = await getDocs(
+    query(collection(a, "users/user-a/workouts"), limit(200)),
+  );
+  expect(partial.size).toBe(10);
+  await saveActivityImport(a, "user-a", preview, { assertOwner: () => {} });
+  const all = await getDocs(
+    query(collection(a, "users/user-a/workouts"), limit(200)),
+  );
+  expect(all.size).toBe(25);
+  const retry = await saveActivityImport(a, "user-a", preview, {
+    assertOwner: () => {},
+  });
+  expect(retry.written).toBe(0);
+});
+it("rejects stale activity writes and wrong-owner/aborted previews before mutation", async () => {
+  const a = modular("user-a"),
+    preview = await syntheticActivityPreview();
+  const w = preview.rows[0].incoming;
+  const controller = new AbortController();
+  controller.abort();
+  await expect(
+    saveActivityImport(a, "user-a", preview, {
+      assertOwner: () => {},
+      signal: controller.signal,
+    }),
+  ).rejects.toBeInstanceOf(ImportCancelled);
+  await expect(
+    saveActivityImport(a, "user-b", preview, { assertOwner: () => {} }),
+  ).rejects.toThrow("Account changed");
+  await setDoc(doc(a, "users/user-a/workouts", w.id), {
+    ...w,
+    title: "Synthetic manual change",
+  });
+  await expect(
+    saveActivityImport(a, "user-a", preview, { assertOwner: () => {} }),
+  ).rejects.toBeInstanceOf(ImportStale);
+  expect(
+    (await getDoc(doc(a, "users/user-a/workouts", w.id))).data()?.title,
+  ).toBe("Synthetic manual change");
+});
+it("matches and unmatches explicitly without changing planned content or default completion status", async () => {
+  const a = modular("user-a"),
+    preview = await syntheticActivityPreview();
+  await saveActivityImport(a, "user-a", preview, { assertOwner: () => {} });
+  const w = preview.rows[0].incoming,
+    s = {
+      ...fixtures.sessions,
+      id: "match-session",
+      type: "Walk",
+      date: "2028-02-07",
+    };
+  await setDoc(doc(a, "users/user-a/sessions", s.id), s);
+  await confirmMatch(
+    a,
+    "user-a",
+    {
+      workout: w,
+      session: schemas.sessions.parse(s),
+      previous: null,
+      markDone: false,
+    },
+    () => {},
+  );
+  const savedW = schemas.workouts.parse(
+      (await getDoc(doc(a, "users/user-a/workouts", w.id))).data(),
+    ),
+    savedS = schemas.sessions.parse(
+      (await getDoc(doc(a, "users/user-a/sessions", s.id))).data(),
+    );
+  expect(savedW.matchSessionId).toBe(s.id);
+  expect(savedS.actualWorkoutId).toBe(w.id);
+  expect(savedS.status).toBe("Planned");
+  expect(savedS.instructions).toBe(s.instructions);
+  await confirmMatch(
+    a,
+    "user-a",
+    { workout: savedW, session: null, previous: savedS, markDone: false },
+    () => {},
+  );
+  expect(
+    (await getDoc(doc(a, "users/user-a/sessions", s.id))).data()?.status,
+  ).toBe("Planned");
+  expect(
+    (await getDoc(doc(a, "users/user-a/sessions", s.id))).data()
+      ?.actualWorkoutId,
+  ).toBeNull();
+});
+it("prevents double assignment, stale status replacement and another user modifying matches", async () => {
+  const a = modular("user-a"),
+    b = modular("user-b"),
+    preview = await syntheticActivityPreview("user-a", 2);
+  await saveActivityImport(a, "user-a", preview, { assertOwner: () => {} });
+  const first = preview.rows[0].incoming,
+    second = preview.rows[1].incoming,
+    s = schemas.sessions.parse({
+      ...fixtures.sessions,
+      id: "match-session",
+      type: "Walk",
+    });
+  await setDoc(doc(a, "users/user-a/sessions", s.id), s);
+  await assertFails(
+    confirmMatch(
+      b,
+      "user-a",
+      { workout: first, session: s, previous: null, markDone: true },
+      () => {},
+    ),
+  );
+  await confirmMatch(
+    a,
+    "user-a",
+    { workout: first, session: s, previous: null, markDone: true },
+    () => {},
+  );
+  const updated = schemas.sessions.parse(
+    (await getDoc(doc(a, "users/user-a/sessions", s.id))).data(),
+  );
+  expect(updated.status).toBe("Done");
+  await expect(
+    confirmMatch(
+      a,
+      "user-a",
+      { workout: second, session: updated, previous: null, markDone: false },
+      () => {},
+    ),
+  ).rejects.toBeDefined();
+  const w = schemas.workouts.parse(
+    (await getDoc(doc(a, "users/user-a/workouts", first.id))).data(),
+  );
+  await updateDoc(doc(a, "users/user-a/sessions", s.id), { status: "Skipped" });
+  await expect(
+    confirmMatch(
+      a,
+      "user-a",
+      { workout: w, session: updated, previous: updated, markDone: true },
+      () => {},
+    ),
+  ).rejects.toBeInstanceOf(ImportStale);
+});

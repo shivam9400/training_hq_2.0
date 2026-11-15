@@ -180,3 +180,24 @@ export function dailyReadiness(
     notes,
   });
 }
+
+export function displayDistance(meters: number | null): string {
+  return meters === null
+    ? "distance missing"
+    : `${(meters / 1000).toFixed(2)} km`;
+}
+export function totalKnownDistance(workouts: Workout[]): {
+  meters: number;
+  missing: number;
+} {
+  return workouts.reduce(
+    (result, w) => {
+      const meters = effectiveMeters(w);
+      return {
+        meters: result.meters + (meters ?? 0),
+        missing: result.missing + Number(meters === null),
+      };
+    },
+    { meters: 0, missing: 0 },
+  );
+}

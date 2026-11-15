@@ -9,5 +9,6 @@
 - Memory-only private data/auth cache. Service worker may cache only static build resources, never Firebase/Drive/auth responses. Clear state and cancel stale loads on account changes; no user data in logs or analytics.
 - Generic TRAINING is not confirmed strength/yoga. Preserve raw/GPS distances, quality flags, source IDs and timestamps; never silently overwrite an unvalidated distance. Non-GPS sessions are valid; pace needs valid duration and distance.
 - No production Google Drive access until scope feasibility and OAuth review are verified. Selecting a folder does not imply access to future Health Sync child files. No closed-browser background sync.
+- Activity parsing stays in a bounded disposable browser worker; persist normalized summaries only. Keep reported/calculated metrics distinct, raw routes/HR series local, and session matching/status changes explicitly confirmed. See docs/activity-import.md.
 - Use synthetic fixtures. From web/: npm ci; npm run lint; npm test; npm run test:rules; npm run build; npm run test:e2e. Emulator tests use only demo-training-hq. Report passed, expected-failure and unrun checks separately.
 - Pages deployment is manual dispatch on main with deploy=true, after review and separate user action. Keep PR/push validation read-only and deployment token grants job-scoped.

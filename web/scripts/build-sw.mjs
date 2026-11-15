@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 const base = "/training_hq_2.0/";
 const assets = [
   "index.html",
+  "activity-parser-licenses.txt",
   "icon.svg",
   "icon-192.png",
   "icon-512.png",

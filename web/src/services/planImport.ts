@@ -386,9 +386,9 @@ export async function previewImport(input: {
       } else if (sourceHash === current.importSource.sourceHash) {
         kind = "unchanged";
         reason = "Already imported; current status retained";
-      } else if (current.status !== "Planned") {
+      } else if (current.status !== "Planned" || current.actualWorkoutId) {
         kind = "conflict";
-        reason = "Completed/partial/skipped status is protected";
+        reason = "Completion status or confirmed workout link is protected";
       } else {
         kind = "change";
         reason = "Source fields changed; unedited Planned session";

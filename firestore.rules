@@ -29,22 +29,52 @@ service cloud.firestore {
       return optionalFields(d, ['id', 'title', 'startDate', 'endDate'], ['importSource']) && str(d.title, 120) && d.title.size() > 0 && date(d.startDate) && date(d.endDate) && d.startDate <= d.endDate && (!('importSource' in d) || (source(d.importSource, false) && d.id == 'imp_' + d.importSource.sourceId));
     }
     function validSession(d) {
-      return optionalFields(d, ['id', 'planId', 'date', 'type', 'title', 'minutes', 'target', 'instructions', 'status'], ['slot', 'week', 'phase', 'day', 'importSource']) && metadata(d)
+      return optionalFields(d, ['id', 'planId', 'date', 'type', 'title', 'minutes', 'target', 'instructions', 'status'], ['slot', 'week', 'phase', 'day', 'importSource', 'actualWorkoutId']) && metadata(d)
         && d.planId is string && d.planId.matches('^[A-Za-z0-9_-]{1,80}$') && date(d.date) && kind(d.type)
         && str(d.title, 120) && d.title.size() > 0 && num(d.minutes, 0, 900)
         && (d.type != 'Run' || d.minutes > 0)
+        && (!('actualWorkoutId' in d) || nullableId(d.actualWorkoutId))
         && str(d.target, 200) && str(d.instructions, 4000) && d.status in ['Planned', 'Done', 'Partial', 'Skipped'];
     }
+    function nullableId(v) { return v == null || (v is string && v.matches('^[A-Za-z0-9_-]{1,80}$')); }
+    function format(v) { return v in ['FIT','TCX','CSV','GPX','KML']; }
+    function metricSources(m) {
+      return m is map && fields(m,['elapsed','moving','distance','averageHr','maxHr','calories','steps','cadence','elevation'])
+        && m.values().hasOnly(['FIT','TCX','CSV','GPX','KML','FIT-samples','TCX-samples','CSV-samples','GPX-samples','KML-samples','samples','timestamps','missing']);
+    }
+    function reportedSources(m) {
+      return m is map && fields(m,['FIT','TCX','CSV','GPX','KML']) && optionalNum(m.FIT,0,500000) && optionalNum(m.TCX,0,500000) && optionalNum(m.CSV,0,500000) && optionalNum(m.GPX,0,500000) && optionalNum(m.KML,0,500000);
+    }
+    function details(d) {
+      return d is map && fields(d,['typeSource','elapsedSeconds','reportedElapsedSeconds','movingSeconds','maxHr','calories','steps','cadence','cadenceUnit','elevationGainMeters','minElevationMeters','maxElevationMeters','elevationSampleCount','hrSampleCount','gpsSampleCount','invalidGpsCount','gpsSource','reportedByFormat','metricSources'])
+        && (format(d.typeSource) || d.typeSource in ['user','missing']) && num(d.elapsedSeconds,0.001,86400) && optionalNum(d.reportedElapsedSeconds,0,86400) && optionalNum(d.movingSeconds,0,86400) && (d.movingSeconds == null || d.movingSeconds <= d.elapsedSeconds + 5)
+        && optionalNum(d.maxHr,25,250) && optionalNum(d.calories,0,30000) && optionalNum(d.steps,0,200000) && optionalNum(d.cadence,0,400) && (d.cadenceUnit == null || d.cadenceUnit in ['rpm','steps/min'])
+        && optionalNum(d.elevationGainMeters,0,30000) && optionalNum(d.minElevationMeters,-1000,10000) && optionalNum(d.maxElevationMeters,-1000,10000)
+        && d.elevationSampleCount is int && num(d.elevationSampleCount,0,50000) && d.hrSampleCount is int && num(d.hrSampleCount,0,50000) && d.gpsSampleCount is int && num(d.gpsSampleCount,0,50000) && d.invalidGpsCount is int && num(d.invalidGpsCount,0,50000)
+        && (d.gpsSource == null || format(d.gpsSource)) && reportedSources(d.reportedByFormat) && metricSources(d.metricSources);
+    }
+    function hashList(v) {
+      return v is list && v.size() >= 1 && v.size() <= 8 && hash(v[0])
+        && (v.size() < 2 || hash(v[1])) && (v.size() < 3 || hash(v[2])) && (v.size() < 4 || hash(v[3]))
+        && (v.size() < 5 || hash(v[4])) && (v.size() < 6 || hash(v[5])) && (v.size() < 7 || hash(v[6])) && (v.size() < 8 || hash(v[7]));
+    }
+    function provenance(p) {
+      return p is map && fields(p,['version','aliases','formats','summaryHash']) && p.version is int && p.version == 1 && hash(p.summaryHash)
+        && hashList(p.aliases) && p.formats is list && p.formats.size() >= 1 && p.formats.size() <= 5 && p.formats.hasOnly(['FIT','TCX','CSV','GPX','KML']);
+    }
     function validWorkout(d) {
-      return fields(d, ['id', 'title', 'type', 'start', 'end', 'reportedMeters', 'gpsMeters', 'distanceSource', 'qualityFlags', 'source', 'sourceId', 'averageHr'])
+      return optionalFields(d, ['id', 'title', 'type', 'start', 'end', 'reportedMeters', 'gpsMeters', 'distanceSource', 'qualityFlags', 'source', 'sourceId', 'averageHr'], ['details','provenance','matchSessionId'])
         && str(d.title, 120) && d.title.size() > 0 && kind(d.type) && instant(d.start) && instant(d.end) && d.end > d.start
         && optionalNum(d.reportedMeters, 0, 500000) && optionalNum(d.gpsMeters, 0, 500000)
         && d.distanceSource in ['reported', 'gps-validated', 'unavailable']
         && (d.distanceSource != 'reported' || d.reportedMeters != null)
         && (d.distanceSource != 'gps-validated' || (d.gpsMeters != null && d.qualityFlags.hasAny(['gps-validated'])))
         && d.qualityFlags is list && d.qualityFlags.size() <= 10
-        && d.qualityFlags.hasOnly(['unvalidated-summary', 'gps-validated', 'gps-unreliable', 'distance-mismatch', 'no-distance'])
-        && str(d.source, 80) && d.source.size() > 0 && str(d.sourceId, 200) && d.sourceId.size() > 0 && optionalNum(d.averageHr, 25, 250);
+        && d.qualityFlags.hasOnly(['unvalidated-summary', 'gps-validated', 'gps-unreliable', 'distance-mismatch', 'no-distance', 'source-conflict'])
+        && str(d.source, 80) && d.source.size() > 0 && str(d.sourceId, 200) && d.sourceId.size() > 0 && optionalNum(d.averageHr, 25, 250)
+        && (!('details' in d) || details(d.details))
+        && (!('provenance' in d) || (provenance(d.provenance) && 'details' in d && d.source == 'health-sync' && hash(d.sourceId) && d.id == 'act_' + d.sourceId))
+        && (!('matchSessionId' in d) || nullableId(d.matchSessionId));
     }
     function validRace(d) {
       return fields(d, ['id', 'title', 'date', 'distanceKm', 'goal']) && str(d.title, 120) && d.title.size() > 0 && date(d.date) && num(d.distanceKm, 0.001, 500) && str(d.goal, 300);

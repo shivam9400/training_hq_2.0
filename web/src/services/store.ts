@@ -13,6 +13,10 @@ import {
 } from "firebase/firestore";
 import { executeImport, type ImportOptions } from "./importExecution";
 import type { ImportPreview } from "./planImport";
+import { saveActivityImport } from "./activities/persistence";
+import { confirmMatch } from "./activities/matching";
+import type { ActivityPreview } from "./activities/preview";
+import type { Session, Workout } from "../types/data";
 import { auth, db } from "./firebase";
 import {
   collections,
@@ -67,6 +71,27 @@ export function userStore(uid: string) {
   }
   return {
     readAll,
+    async importActivities(
+      preview: ActivityPreview,
+      options: Omit<ImportOptions, "assertOwner">,
+    ) {
+      return saveActivityImport(guard(), uid, preview, {
+        ...options,
+        assertOwner: () => {
+          guard();
+        },
+      });
+    },
+    async matchActivity(input: {
+      workout: Workout;
+      session: Session | null;
+      previous: Session | null;
+      markDone: boolean;
+    }) {
+      return confirmMatch(guard(), uid, input, () => {
+        guard();
+      });
+    },
     async importPlan(
       preview: ImportPreview,
       options: Omit<ImportOptions, "assertOwner">,

@@ -90,3 +90,19 @@ This is not a checksum override: npm integrity verification stays enabled. The
 browser build does not use Node gRPC; emulator tests validate the Node SDK path.
 Production npm audit reports zero advisories after the override. Review it when
 Firebase updates its pin; do not remove it without rechecking dependency security.
+
+## Local activity import boundary
+
+Raw files and samples are handled only in a bounded disposable browser worker.
+ZIP traversal/encryption/symlinks/nesting/CRC/expansion and XML DTD/entity/depth
+checks reject unsafe input. No raw content is used in logs, filenames in persisted
+provenance, analytics or public uploads. Rules allow only bounded summary fields,
+hash aliases and IDs; raw routes/HR arrays are rejected. Baseline hashes and full
+transaction snapshots protect edits, not authentication: server-side ownership is
+still the security boundary. Cancellation can leave committed chunks, never an
+unannounced replacement of an entire collection. Repreview safely to resume.
+
+Future Drive authorization may use a different Google account from Firebase login;
+that is a separate explicit consent stored under the owning Firebase UID, never
+cross-user data authorization. No OAuth grants/tokens are implemented or stored
+by the local file importer. See activity-import.md and drive-integration.md.

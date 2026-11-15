@@ -1,5 +1,11 @@
 import { useState } from "react";
 import type { Training } from "../hooks/useTraining";
+import {
+  ImportActivities,
+  WorkoutFields,
+} from "../components/ImportActivities";
+import { ActivityMatch } from "../components/ActivityMatch";
+import { confirmedActual } from "../services/activities/matching";
 import { ImportPlan } from "../components/ImportPlan";
 import { sortSessions, preserveEditorText } from "../services/planImport";
 import { Card } from "../components/Card";
@@ -14,8 +20,9 @@ import {
   completion,
   durationMinutes,
   effectiveMeters,
+  displayDistance,
+  totalKnownDistance,
   localDate,
-  pace,
   dailyReadiness,
   dueSessions,
 } from "../services/calculations";
@@ -41,6 +48,7 @@ const disabled = (app: Training) =>
   app.busy || (app.mode === "cloud" && (!app.online || !app.loaded));
 
 function SessionCard({ session, app }: { session: Session; app: Training }) {
+  const actual = confirmedActual(session, app.records.workouts);
   return (
     <article className="session">
       <div className="split">
@@ -62,6 +70,14 @@ function SessionCard({ session, app }: { session: Session; app: Training }) {
       <p className="instructions">
         {session.instructions || "No instructions yet."}
       </p>
+      {actual && (
+        <p className="banner">
+          Confirmed actual: {Math.round(durationMinutes(actual) ?? 0)} min
+          elapsed vs {session.minutes} min planned ·{" "}
+          {displayDistance(effectiveMeters(actual))} · HR{" "}
+          {actual.averageHr ?? "missing"}. {actual.qualityFlags.join(" · ")}
+        </p>
+      )}
       <fieldset disabled={disabled(app)}>
         <legend>Session status</legend>
         <div className="actions">
@@ -506,6 +522,13 @@ function Progress({ app }: { app: Training }) {
     (sum, w) => sum + (effectiveMeters(w) ?? 0),
     0,
   );
+  const matched = app.records.sessions
+    .filter((s) => s.date <= localDate())
+    .map((session) => ({
+      session,
+      actual: confirmedActual(session, app.records.workouts),
+    }))
+    .filter((pair) => pair.actual !== undefined);
   return (
     <>
       <Card title="Training consistency">
@@ -528,11 +551,15 @@ function Progress({ app }: { app: Training }) {
       <div className="grid">
         <Card title="Running distance">
           <strong className="stat">
-            {(meters / 1000).toFixed(1)} <small>km</small>
+            {workouts.some((w) => effectiveMeters(w) !== null)
+              ? (meters / 1000).toFixed(1)
+              : "—"}{" "}
+            <small>km</small>
           </strong>
           <p>
             From recorded runs; reported and validated GPS provenance are
-            retained.
+            retained. {totalKnownDistance(workouts).missing} workout distances
+            are missing and excluded from the total.
           </p>
         </Card>
         <Card title="Time on feet">
@@ -542,6 +569,32 @@ function Progress({ app }: { app: Training }) {
           <p>Elapsed recorded running time; not a claim of moving time.</p>
         </Card>
       </div>
+      <Card title="Confirmed planned versus actual">
+        <p>
+          {matched.length} confirmed session matches ·{" "}
+          {matched.reduce((sum, p) => sum + p.session.minutes, 0)} min planned ·{" "}
+          {Math.round(
+            matched.reduce(
+              (sum, p) => sum + (durationMinutes(p.actual!) ?? 0),
+              0,
+            ),
+          )}{" "}
+          min actual elapsed ·{" "}
+          {(
+            matched.reduce(
+              (sum, p) => sum + (effectiveMeters(p.actual!) ?? 0),
+              0,
+            ) / 1000
+          ).toFixed(2)}{" "}
+          km known effective distance;{" "}
+          {totalKnownDistance(matched.map((p) => p.actual!)).missing} matched
+          distances missing.
+        </p>
+        <p className="muted">
+          Only reciprocal, explicitly confirmed matches count here. Import never
+          changes a plan's text or completion status.
+        </p>
+      </Card>
       <Card title="Load by date">
         {[...new Set(workouts.map((w) => localDate(new Date(w.start))))]
           .sort()
@@ -566,6 +619,7 @@ function Progress({ app }: { app: Training }) {
 function Activities({ app }: { app: Training }) {
   return (
     <>
+      <ImportActivities app={app} />
       <Card title="Recent workouts">
         {[...app.records.workouts]
           .sort((a, b) => b.start.localeCompare(a.start))
@@ -573,22 +627,12 @@ function Activities({ app }: { app: Training }) {
             <article className="session" key={w.id}>
               <span className="chip">{w.type}</span>
               <h3>{w.title}</h3>
-              <p>
-                {new Date(w.start).toLocaleString()} ·{" "}
-                {Math.round(durationMinutes(w) ?? 0)} min
-              </p>
-              <p>
-                {effectiveMeters(w) === null
-                  ? "No distance"
-                  : `${((effectiveMeters(w) ?? 0) / 1000).toFixed(2)} km`}{" "}
-                ·{" "}
-                {pace(w.type, durationMinutes(w), effectiveMeters(w)) ??
-                  "Pace unavailable"}
-              </p>
-              <p className="muted">
-                Source: {w.source} · Distance: {w.distanceSource} · Raw:{" "}
-                {w.reportedMeters ?? "—"} m · GPS: {w.gpsMeters ?? "—"} m
-              </p>
+              <WorkoutFields workout={w} />
+              <ActivityMatch
+                key={`${w.id}-${w.matchSessionId ?? "none"}`}
+                app={app}
+                workout={w}
+              />
             </article>
           ))}
         {!app.records.workouts.length && (

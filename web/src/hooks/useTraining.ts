@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ZodError } from "zod";
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { auth, configured, login, logout } from "../services/firebase";
+import type { ActivityPreview } from "../services/activities/preview";
+import type { Session, Workout } from "../types/data";
 import type { ImportPreview } from "../services/planImport";
 import type { ImportOptions } from "../services/importExecution";
 import { userStore } from "../services/store";
@@ -150,6 +152,57 @@ export function useTraining() {
       const updated = await userStore(uid).readAll();
       if (identity.current === uid) setRecords(updated);
       return result;
+    },
+    async importActivities(
+      preview: ActivityPreview,
+      options: Omit<ImportOptions, "assertOwner">,
+    ) {
+      if (!user || !loaded || identity.current !== user.uid)
+        throw new Error("Sign in first");
+      const uid = user.uid,
+        result = await userStore(uid).importActivities(preview, options);
+      const updated = await userStore(uid).readAll();
+      if (identity.current === uid) setRecords(updated);
+      return result;
+    },
+    async matchActivity(
+      workout: Workout,
+      session: Session | null,
+      markDone = false,
+    ) {
+      if (!user) {
+        // Explicit links can be explored with synthetic demo data only.
+        setRecords((old) => ({
+          ...old,
+          workouts: old.workouts.map((w) =>
+            w.id === workout.id
+              ? { ...w, matchSessionId: session?.id ?? null }
+              : w,
+          ),
+          sessions: old.sessions.map((s) =>
+            s.id === session?.id
+              ? {
+                  ...s,
+                  actualWorkoutId: workout.id,
+                  ...(markDone ? { status: "Done" as const } : {}),
+                }
+              : s.id === workout.matchSessionId
+                ? { ...s, actualWorkoutId: null }
+                : s,
+          ),
+        }));
+        return;
+      }
+      const uid = user.uid;
+      await userStore(uid).matchActivity({
+        workout,
+        session,
+        previous:
+          records.sessions.find((s) => s.id === workout.matchSessionId) ?? null,
+        markDone,
+      });
+      const updated = await userStore(uid).readAll();
+      if (identity.current === uid) setRecords(updated);
     },
     refresh: () => {
       if (user) void load(user);

@@ -20,6 +20,73 @@ const source = z
   .object({ sourceId: digest, sourceHash: digest, version: z.literal(1) })
   .strict();
 const sessionSource = source.extend({ rowId: digest }).strict();
+export const activityFormats = ["FIT", "TCX", "CSV", "GPX", "KML"] as const;
+const metricSource = z.enum([
+  ...activityFormats,
+  "FIT-samples",
+  "TCX-samples",
+  "CSV-samples",
+  "GPX-samples",
+  "KML-samples",
+  "samples",
+  "timestamps",
+  "missing",
+]);
+const detailSchema = z
+  .object({
+    typeSource: z.enum([...activityFormats, "user", "missing"]),
+    elapsedSeconds: z.number().positive().max(86400),
+    reportedElapsedSeconds: nullableNumber(0, 86400),
+    movingSeconds: nullableNumber(0, 86400),
+    maxHr: nullableNumber(25, 250),
+    calories: nullableNumber(0, 30000),
+    steps: nullableNumber(0, 200000),
+    cadence: nullableNumber(0, 400),
+    cadenceUnit: z.enum(["rpm", "steps/min"]).nullable(),
+    elevationGainMeters: nullableNumber(0, 30000),
+    minElevationMeters: nullableNumber(-1000, 10000),
+    maxElevationMeters: nullableNumber(-1000, 10000),
+    elevationSampleCount: z.number().int().min(0).max(50000),
+    hrSampleCount: z.number().int().min(0).max(50000),
+    gpsSampleCount: z.number().int().min(0).max(50000),
+    invalidGpsCount: z.number().int().min(0).max(50000),
+    gpsSource: z.enum(activityFormats).nullable(),
+    reportedByFormat: z
+      .object({
+        FIT: nullableNumber(0, 500000),
+        TCX: nullableNumber(0, 500000),
+        CSV: nullableNumber(0, 500000),
+        GPX: nullableNumber(0, 500000),
+        KML: nullableNumber(0, 500000),
+      })
+      .strict(),
+    metricSources: z
+      .object({
+        elapsed: metricSource,
+        moving: metricSource,
+        distance: metricSource,
+        averageHr: metricSource,
+        maxHr: metricSource,
+        calories: metricSource,
+        steps: metricSource,
+        cadence: metricSource,
+        elevation: metricSource,
+      })
+      .strict(),
+  })
+  .strict()
+  .refine(
+    (d) => d.movingSeconds === null || d.movingSeconds <= d.elapsedSeconds + 5,
+    "Moving duration exceeds elapsed duration",
+  );
+const provenanceSchema = z
+  .object({
+    version: z.literal(1),
+    aliases: z.array(digest).min(1).max(8),
+    formats: z.array(z.enum(activityFormats)).min(1).max(5),
+    summaryHash: digest,
+  })
+  .strict();
 export const schemas = {
   plans: z
     .object({
@@ -51,6 +118,7 @@ export const schemas = {
       phase: text(120).optional(),
       day: z.enum(["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]).optional(),
       importSource: sessionSource.optional(),
+      actualWorkoutId: id.nullable().optional(),
     })
     .strict()
     .refine(
@@ -87,6 +155,9 @@ export const schemas = {
       source: text(80),
       sourceId: text(200),
       averageHr: nullableNumber(25, 250),
+      details: detailSchema.optional(),
+      provenance: provenanceSchema.optional(),
+      matchSessionId: id.nullable().optional(),
     })
     .strict()
     .refine(
@@ -102,6 +173,15 @@ export const schemas = {
     .refine(
       (w) => w.distanceSource !== "reported" || w.reportedMeters !== null,
       "Reported distance required",
+    )
+    .refine(
+      (w) =>
+        !w.provenance ||
+        (w.details !== undefined &&
+          w.source === "health-sync" &&
+          /^[a-f0-9]{64}$/.test(w.sourceId) &&
+          w.id === `act_${w.sourceId}`),
+      "Imported activity identity/details mismatch",
     ),
   races: z
     .object({
