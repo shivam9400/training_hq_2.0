@@ -22,8 +22,11 @@ Local results before review:
   gate, cancellation/clearing and invalid-Day error flow).
 - Firestore emulator: local download of its official JAR was denied by network
   policy at storage.googleapis.com. No production database was used as fallback.
-  The full real-emulator suite (7 existing + 5 importer tests) is included in PR
-  validation; hosted results will be added to the PR when available.
+  The initial real-emulator suite (7 existing + 5 importer tests) passed in
+  [hosted run 43717151641](https://github.com/shivam9400/training_hq_2.0/actions/runs/43717151641),
+  along with all build/lint/unit/browser checks; deployment was skipped. One more
+  status-only concurrency regression was then added (13 total emulator tests);
+  its final hosted run is linked in the PR.
 
 The importer emulator tests execute actual transactions: 69 rows, same-preview
 retry after commit, A/B imported-document isolation, unknown/malformed metadata,

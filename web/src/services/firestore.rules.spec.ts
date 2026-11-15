@@ -395,3 +395,37 @@ it("refuses stale plan metadata and aborted or other-account previews before wri
       .size,
   ).toBe(0);
 });
+
+it("protects a status-only edit made after a source-change preview", async () => {
+  const a = modular("user-a");
+  const initial = await makePreview(
+    syntheticCsv(1),
+    [],
+    [],
+    "create",
+    "user-a",
+  );
+  await executeImport(a, "user-a", initial, { assertOwner: () => {} });
+  const existing = initial.rows[0].incoming;
+  const parsed = parsePlanCsv(syntheticCsv(1));
+  parsed.rows[0].instructions = "Synthetic changed instructions";
+  const update = await previewImport({
+    ownerUid: "user-a",
+    parsed,
+    sourceLabel: "unused-update",
+    title: initial.plan.title,
+    mode: "update",
+    selectedPlan: initial.plan,
+    plans: [initial.plan],
+    sessions: [existing],
+  });
+  expect(update.rows[0].kind).toBe("change");
+  const ref = doc(a, "users/user-a/sessions", existing.id);
+  await updateDoc(ref, { status: "Done" });
+  await expect(
+    executeImport(a, "user-a", update, { assertOwner: () => {} }),
+  ).rejects.toBeInstanceOf(ImportStale);
+  const stored = (await getDoc(ref)).data();
+  expect(stored?.status).toBe("Done");
+  expect(stored?.instructions).toBe(existing.instructions);
+});
