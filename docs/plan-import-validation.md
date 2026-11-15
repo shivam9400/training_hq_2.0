@@ -12,8 +12,8 @@ Local results before review:
   chunk is just above 500 kB after adding transaction support; this is a bundle-size
   warning, not a suppressed error or failed build.
 - Format and ESLint passed.
-- Unit suite: 26 passed, 1 existing expected failure for the unchanged legacy CSV
-  column defect; no unexpected failure/skipped tests. Ten new importer tests cover
+- Unit suite: 27 passed, 1 existing expected failure for the unchanged legacy CSV
+  column defect; no unexpected failure/skipped tests. Eleven new importer tests cover
   mapping, header normalization/reorder, 69 synthetic rows, Unicode/BOM/quoted
   multiline CSV, date/day validation, slots/weeks/types/duration bounds, Rest/Race
   at zero, duplicate identities, reimports, source changes, manual edits/statuses,
@@ -26,7 +26,8 @@ Local results before review:
   [hosted run 43717151641](https://github.com/shivam9400/training_hq_2.0/actions/runs/43717151641),
   along with all build/lint/unit/browser checks; deployment was skipped. One more
   status-only concurrency regression was then added (13 total emulator tests);
-  its final hosted run is linked in the PR.
+  [hosted run 43717456892](https://github.com/shivam9400/training_hq_2.0/actions/runs/43717456892) passed all 13.
+  The final text-preservation follow-up is verified in the PR checks.
 
 The importer emulator tests execute actual transactions: 69 rows, same-preview
 retry after commit, A/B imported-document isolation, unknown/malformed metadata,

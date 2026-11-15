@@ -418,3 +418,16 @@ export async function previewImport(input: {
     warnings,
   };
 }
+
+/** HTML controls normalize line endings; an unchanged edit must retain original source bytes. */
+export function preserveEditorText(
+  value: string,
+  original: string | undefined,
+  multiline = true,
+): string {
+  if (original === undefined) return value;
+  const displayed = multiline
+    ? original.replace(/\r\n?/g, "\n")
+    : original.replace(/[\r\n]/g, "");
+  return value === displayed ? original : value;
+}

@@ -7,6 +7,7 @@ import {
   parsePlanCsv,
   sessionContent,
   sortSessions,
+  preserveEditorText,
 } from "./planImport";
 import { syntheticCsv, makePreview } from "./importFixtures";
 describe("private 10-column plan parser", () => {
@@ -208,4 +209,16 @@ describe("stable import preview and update protection", () => {
         .map((r) => r.slot),
     ).toEqual([2, 10]);
   });
+});
+
+it("retains source CRLF/text whitespace when unchanged HTML editor values normalize it", () => {
+  expect(
+    preserveEditorText("  Line one\nLine two  ", "  Line one\r\nLine two  "),
+  ).toBe("  Line one\r\nLine two  ");
+  expect(preserveEditorText("Source title", "Source\r\n title", false)).toBe(
+    "Source\r\n title",
+  );
+  expect(preserveEditorText("changed\ntext", "original\r\ntext")).toBe(
+    "changed\ntext",
+  );
 });

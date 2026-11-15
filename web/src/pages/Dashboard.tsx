@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { Training } from "../hooks/useTraining";
 import { ImportPlan } from "../components/ImportPlan";
-import { sortSessions } from "../services/planImport";
+import { sortSessions, preserveEditorText } from "../services/planImport";
 import { Card } from "../components/Card";
 import {
   kinds,
@@ -165,16 +165,32 @@ function SessionEditor({
         event.preventDefault();
         const form = event.currentTarget;
         const values = new FormData(form);
+        const titleInput = String(values.get("title"));
+        const preservedTitle = preserveEditorText(
+          titleInput,
+          existing?.title,
+          false,
+        );
         const row: Session = {
           ...existing,
           id: existing?.id ?? freshId(),
           planId,
           date: String(values.get("date")),
           type: values.get("type") as Session["type"],
-          title: String(values.get("title")).trim(),
+          title:
+            existing?.importSource && preservedTitle === existing.title
+              ? existing.title
+              : titleInput.trim(),
           minutes: Number(values.get("minutes")),
-          target: String(values.get("target")),
-          instructions: String(values.get("instructions")),
+          target: preserveEditorText(
+            String(values.get("target")),
+            existing?.target,
+            false,
+          ),
+          instructions: preserveEditorText(
+            String(values.get("instructions")),
+            existing?.instructions,
+          ),
           status: existing?.status ?? "Planned",
         };
         void app.action(async () => {
