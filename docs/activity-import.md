@@ -119,7 +119,7 @@ Optional strict details/provenance maps and reciprocal session/workout IDs prese
 old records. Rules reject raw tracks/HR arrays, unknown fields and foreign paths.
 They enforce ownership/schema, not the scientific truth of user-supplied metrics.
 
-Writes use transactions of ≤10 workouts, maximum three attempts. Reads precede
+Writes use transactions of ≤2 workouts, maximum three attempts. Reads precede
 writes; exact already-applied payloads are no-ops. Progress advances after commits.
 A cancellation/account switch stops future chunks; an already in-flight chunk may
 commit. Completed chunks remain. Reload private records, select the same files,

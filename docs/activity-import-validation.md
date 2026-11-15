@@ -31,10 +31,12 @@ bytes are unchanged. No live Firebase/Drive/Sheets access or deployment was atte
 
 The emulator suite now has 18 tests: existing per-collection two-user CRUD isolation,
 schema/query denial, plan CSV transactions/recovery plus imported workout summaries,
-raw-field rejection, foreign activity/match access, 10-document chunk cancellation,
+raw-field rejection, foreign activity/match access, two-document chunk cancellation,
 idempotent retries, concurrent-edit rejection, explicit reciprocal links, status
 preservation, occupied-session rejection and unmatching. It uses demo-training-hq
-only. Hosted CI result: pending initial PR validation.
+only. Hosted CI initially exposed a permission failure in the ten-document recovery
+transaction. Summary chunks were reduced to two to respect strict rule-evaluation
+budgets; final hosted validation is pending.
 
 ## Manual acceptance still required
 

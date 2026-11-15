@@ -29,9 +29,10 @@ export async function saveActivityImport(
   let processed = 0,
     written = 0;
   options.onProgress?.(0, rows.length);
-  for (let offset = 0; offset < rows.length; offset += 10) {
+  // Rich summary validation has a per-request rules expression budget. Keep chunks small.
+  for (let offset = 0; offset < rows.length; offset += 2) {
     guard();
-    const chunk = rows.slice(offset, offset + 10);
+    const chunk = rows.slice(offset, offset + 2);
     const count = await runTransaction(
       database,
       async (tx) => {
