@@ -470,12 +470,34 @@ it("stores strict imported activity summaries and denies cross-account CRUD/raw 
   await assertFails(setDoc(foreign, w));
   const own = doc(a, "users/user-a/workouts", w.id);
   await assertSucceeds(setDoc(own, w));
+  await assertSucceeds(
+    setDoc(own, {
+      ...w,
+      provenance: {
+        ...w.provenance,
+        aliases: Array.from({ length: 8 }, (_, i) => String(i).repeat(64)),
+      },
+    }),
+  );
   for (const patch of [
     { track: [{ latitude: 1, longitude: 1 }] },
     { details: { ...w.details, rawHr: [120] } },
     { details: { ...w.details, movingSeconds: 99999 } },
     { details: { ...w.details, calories: -1 } },
     { provenance: { ...w.provenance, aliases: ["not-a-hash"] } },
+    {
+      provenance: {
+        ...w.provenance,
+        aliases: ["a".repeat(64) + "," + "b".repeat(64)],
+      },
+    },
+    { provenance: { ...w.provenance, aliases: [1] } },
+    {
+      provenance: {
+        ...w.provenance,
+        aliases: ["a".repeat(63), "b".repeat(65)],
+      },
+    },
     { matchSessionId: "users/user-b/sessions/other" },
   ])
     await assertFails(setDoc(own, { ...w, ...patch }));

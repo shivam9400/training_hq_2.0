@@ -54,9 +54,12 @@ service cloud.firestore {
         && (d.gpsSource == null || format(d.gpsSource)) && reportedSources(d.reportedByFormat) && metricSources(d.metricSources);
     }
     function hashList(v) {
-      return v is list && v.size() >= 1 && v.size() <= 8 && hash(v[0])
-        && (v.size() < 2 || hash(v[1])) && (v.size() < 3 || hash(v[2])) && (v.size() < 4 || hash(v[3]))
-        && (v.size() < 5 || hash(v[4])) && (v.size() < 6 || hash(v[5])) && (v.size() < 7 || hash(v[6])) && (v.size() < 8 || hash(v[7]));
+      let joined = v is list ? v.join(',') : '';
+      // The exact joined length fixes the separator count, so embedded commas cannot
+      // turn one oversized member into multiple accepted hashes. join requires strings.
+      return v is list && v.size() >= 1 && v.size() <= 8
+        && joined.size() == v.size() * 65 - 1
+        && joined.matches('^[a-f0-9]{64}(,[a-f0-9]{64}){0,7}$');
     }
     function provenance(p) {
       return p is map && fields(p,['version','aliases','formats','summaryHash']) && p.version is int && p.version == 1 && hash(p.summaryHash)
