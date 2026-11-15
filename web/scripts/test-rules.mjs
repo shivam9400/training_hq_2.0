@@ -30,10 +30,11 @@ child.on("error", () => {
 });
 child.on("close", (code) => {
   if (code !== 0 && process.env.CI) {
-    const message = `${first}\n[Bounded diagnostic tail]\n${last}`
-      .replaceAll("%", "%25")
-      .replaceAll("\r", "%0D")
-      .replaceAll("\n", "%0A");
+    const message =
+      `${last.slice(-3500)}\n[Startup prefix]\n${first.slice(0, 500)}`
+        .replaceAll("%", "%25")
+        .replaceAll("\r", "%0D")
+        .replaceAll("\n", "%0A");
     console.error(`::error title=Demo emulator validation::${message}`);
   }
   process.exitCode = code ?? 1;

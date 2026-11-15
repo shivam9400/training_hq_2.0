@@ -495,6 +495,8 @@ it("stores strict imported activity summaries and denies cross-account CRUD/raw 
   );
   for (const patch of [
     { track: [{ latitude: 1, longitude: 1 }] },
+    { id: "different-path-id" },
+    { sourceId: "b".repeat(64) },
     { details: { ...w.details, rawHr: [120] } },
     { details: { ...w.details, movingSeconds: 99999 } },
     { details: { ...w.details, calories: -1 } },
