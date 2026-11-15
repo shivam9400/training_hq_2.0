@@ -73,14 +73,28 @@ const fixtures = {
 beforeAll(async () => {
   if (process.env.FIRESTORE_EMULATOR_HOST !== "127.0.0.1:8080")
     throw new Error("Tests must use the local Firestore emulator");
-  env = await initializeTestEnvironment({
-    projectId: "demo-training-hq",
-    firestore: {
-      host: "127.0.0.1",
-      port: 8080,
-      rules: readFileSync("../firestore.rules", "utf8"),
-    },
-  });
+  try {
+    env = await initializeTestEnvironment({
+      projectId: "demo-training-hq",
+      firestore: {
+        host: "127.0.0.1",
+        port: 8080,
+        rules: readFileSync("../firestore.rules", "utf8"),
+      },
+    });
+  } catch (error) {
+    // Startup errors contain only static rules/connection diagnostics, never health records.
+    if (process.env.CI) {
+      const message = String(error)
+        .replaceAll("%", "%25")
+        .replaceAll("\r", "%0D")
+        .replaceAll("\n", "%0A");
+      console.error(
+        `::error title=Firestore emulator initialization::${message}`,
+      );
+    }
+    throw error;
+  }
 });
 beforeEach(async () => {
   await env.clearFirestore();
