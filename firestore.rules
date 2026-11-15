@@ -86,13 +86,25 @@ service cloud.firestore {
         && optionalNum(d.steps, 0, 200000) && str(d.notes, 2000);
     }
     function known(c) { return c in ['plans', 'sessions', 'workouts', 'races', 'metrics']; }
-    function valid(c, d) {
-      return (c == 'plans' && validPlan(d)) || (c == 'sessions' && validSession(d)) || (c == 'workouts' && validWorkout(d)) || (c == 'races' && validRace(d)) || (c == 'metrics' && validMetric(d));
-    }
     match /users/{uid}/{collection}/{id} {
       allow get, delete: if owner(uid) && known(collection);
       allow list: if owner(uid) && known(collection) && request.query.limit != null && request.query.limit <= 200;
-      allow create, update: if owner(uid) && known(collection) && identity(request.resource.data, id) && valid(collection, request.resource.data);
+    }
+    // Dispatch by path: do not evaluate unrelated collection validators against rich summaries.
+    match /users/{uid}/plans/{id} {
+      allow create, update: if owner(uid) && identity(request.resource.data, id) && validPlan(request.resource.data);
+    }
+    match /users/{uid}/sessions/{id} {
+      allow create, update: if owner(uid) && identity(request.resource.data, id) && validSession(request.resource.data);
+    }
+    match /users/{uid}/workouts/{id} {
+      allow create, update: if owner(uid) && identity(request.resource.data, id) && validWorkout(request.resource.data);
+    }
+    match /users/{uid}/races/{id} {
+      allow create, update: if owner(uid) && identity(request.resource.data, id) && validRace(request.resource.data);
+    }
+    match /users/{uid}/metrics/{id} {
+      allow create, update: if owner(uid) && identity(request.resource.data, id) && validMetric(request.resource.data);
     }
     // Parent profiles, unknown collections and all nested paths are denied.
     match /{document=**} { allow read, write: if false; }

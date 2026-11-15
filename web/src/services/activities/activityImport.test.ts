@@ -110,6 +110,7 @@ describe("actual file parsing with synthetic fixtures", () => {
     const { workout, notes } = await normalizeActivity(result.activities[0]);
     expect(workout.details?.elapsedSeconds).toBe(3600);
     expect(workout.details?.reportedElapsedSeconds).toBe(3000);
+    expect(workout.details?.metricSources.elapsed).toBe("timestamps");
     expect(workout.details?.movingSeconds).toBe(2400);
     expect(workout.qualityFlags).toContain("source-conflict");
     expect(notes.join(" ")).toContain("conflicts with timestamps");
@@ -138,6 +139,7 @@ describe("actual file parsing with synthetic fixtures", () => {
     );
     expect(g.workout.gpsMeters).toBeCloseTo(4260, 0);
     expect(g.workout.reportedMeters).toBeNull();
+    expect(g.workout.qualityFlags).not.toContain("distance-mismatch");
     expect(g.workout.averageHr).toBeNull();
     const k = parseXml(
       '<kml><Document><Placemark><gx:Track xmlns:gx="urn:gx"><when>2028-02-07T07:00:00Z</when><when>2028-02-07T07:10:00Z</when><gx:coord>1 1 20</gx:coord><gx:coord>1.01 1 20</gx:coord></gx:Track></Placemark></Document></kml>',
@@ -186,6 +188,9 @@ describe("ZIP safety and local pipeline", () => {
   });
   it("rejects path traversal, expansion bombs, CRC corruption, nested ZIPs and oversize input", async () => {
     expect(safePath("../private.csv")).toBe(false);
+    await expect(
+      expandFiles([{ name: "truncated.zip", bytes: wire("PK") }]),
+    ).rejects.toBeDefined();
     expect(safePath("C:\\private.csv")).toBe(false);
     await expect(
       expandFiles([

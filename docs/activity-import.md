@@ -120,7 +120,7 @@ old records. Rules reject raw tracks/HR arrays, unknown fields and foreign paths
 They enforce ownership/schema, not the scientific truth of user-supplied metrics.
 
 Writes use one summary per transaction, maximum three attempts. Rich schema
-validation must fit Firestore’s 1,000-expression request budget; parallel multi-write
+validation must fit Firestore’s 1,000-expression request budget; multi-write
 summary chunks exceeded that budget in emulator tests. Reads precede
 writes; exact already-applied payloads are no-ops. Progress advances after commits.
 A cancellation/account switch stops future chunks; an already in-flight chunk may

@@ -116,7 +116,10 @@ export function validateDistance(
     return {
       ...initial,
       source: "gps-validated",
-      flags: ["gps-validated", "distance-mismatch"],
+      flags: [
+        "gps-validated",
+        ...(reportedMeters === null ? [] : ["distance-mismatch"]),
+      ],
     };
   return { ...initial, flags: ["gps-validated"] };
 }

@@ -166,7 +166,11 @@ export async function normalizeActivity(a: RawActivity): Promise<Candidate> {
         [a.format]: a.reportedMeters,
       },
       metricSources: {
-        elapsed: a.reportedElapsedSeconds === null ? "timestamps" : a.format,
+        elapsed:
+          a.reportedElapsedSeconds === null ||
+          Math.abs(a.reportedElapsedSeconds - duration) > 5
+            ? "timestamps"
+            : a.format,
         moving: metric("moving", a.movingSeconds !== null),
         distance: metric("distance", a.reportedMeters !== null),
         averageHr:
@@ -194,5 +198,5 @@ export async function normalizeActivity(a: RawActivity): Promise<Candidate> {
     formats: [a.format],
     summaryHash: await hash(summaryContent(workout)),
   };
-  return { workout, notes };
+  return { workout, notes: notes.map((note) => `${a.format}: ${note}`) };
 }
