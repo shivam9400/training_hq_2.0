@@ -1,0 +1,33 @@
+# Secrets, credentials and real health exports
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.jks
+*.keystore
+*credentials*.json
+*service-account*.json
+*.csv
+*.tcx
+*.gpx
+*.fit
+*.kml
+*.xlsx
+*.xls
+*.db
+*.sqlite*
+*.geojson
+training-hq-export*.json
+# Generated files
+node_modules/
+dist/
+coverage/
+.firebase/
+*debug.log*
+playwright-report/
+test-results/
+*.tsbuildinfo
+.idea/
+.DS_Store
