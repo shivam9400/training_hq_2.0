@@ -15,11 +15,26 @@ export const kinds = [
 ] as const;
 export const statuses = ["Planned", "Done", "Partial", "Skipped"] as const;
 const id = z.string().regex(/^[A-Za-z0-9_-]{1,80}$/);
+const digest = z.string().regex(/^[a-f0-9]{64}$/);
+const source = z
+  .object({ sourceId: digest, sourceHash: digest, version: z.literal(1) })
+  .strict();
+const sessionSource = source.extend({ rowId: digest }).strict();
 export const schemas = {
   plans: z
-    .object({ id, title: text(120).min(1), startDate: date, endDate: date })
+    .object({
+      id,
+      title: text(120).min(1),
+      startDate: date,
+      endDate: date,
+      importSource: source.optional(),
+    })
     .strict()
-    .refine((p) => p.endDate >= p.startDate, "End date precedes start date"),
+    .refine((p) => p.endDate >= p.startDate, "End date precedes start date")
+    .refine(
+      (p) => !p.importSource || p.id === `imp_${p.importSource.sourceId}`,
+      "Imported plan identity mismatch",
+    ),
   sessions: z
     .object({
       id,
@@ -31,11 +46,32 @@ export const schemas = {
       target: text(200),
       instructions: text(4000),
       status: z.enum(statuses),
+      slot: z.number().int().min(1).max(99).optional(),
+      week: z.number().int().min(1).max(9999).optional(),
+      phase: text(120).optional(),
+      day: z.enum(["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]).optional(),
+      importSource: sessionSource.optional(),
     })
     .strict()
     .refine(
-      (s) => !["Run", "Race"].includes(s.type) || s.minutes > 0,
-      "Run/race duration must be positive",
+      (s) => s.type !== "Run" || s.minutes > 0,
+      "Run duration must be positive",
+    )
+    .refine(
+      (s) =>
+        !s.importSource ||
+        (s.slot !== undefined &&
+          s.week !== undefined &&
+          s.phase !== undefined &&
+          s.day !== undefined),
+      "Imported sessions require source metadata",
+    )
+    .refine(
+      (s) =>
+        !s.importSource ||
+        (s.id === `row_${s.importSource.rowId}` &&
+          s.planId === `imp_${s.importSource.sourceId}`),
+      "Imported row identity mismatch",
     ),
   workouts: z
     .object({
@@ -92,6 +128,7 @@ export const schemas = {
     .refine((m) => m.id === m.date, "Check-in identity must match date"),
 };
 export type Kind = (typeof kinds)[number];
+export type PlanRecord = z.infer<typeof schemas.plans>;
 export type Session = z.infer<typeof schemas.sessions>;
 export type Workout = z.infer<typeof schemas.workouts>;
 export type Metric = z.infer<typeof schemas.metrics>;

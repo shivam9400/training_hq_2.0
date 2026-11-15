@@ -115,3 +115,63 @@ test("static-only service worker supports offline shell without health response 
     ),
   ).toBe(true);
 });
+
+test("local plan CSV preview preserves quoted Unicode metadata and requires authenticated confirmation", async ({
+  page,
+}) => {
+  await page.goto("");
+  await page
+    .getByRole("navigation", { name: "Main navigation" })
+    .getByRole("button", { name: "Plan", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Import Plan", exact: true }).click();
+  await page
+    .getByLabel("Stable source reference")
+    .fill("synthetic-browser-source");
+  await page.getByLabel("Imported plan name").fill("Synthetic browser import");
+  const csv =
+    'Date,Day,Slot,Wk,Phase,Type,Session,What to do,Target (HR / pace),Planned min\r\n2028-02-07,Mon,2,1,Synthetic,Race,"Synthetic race, zero","Synthetic Unicode × —\nSecond line",Synthetic target,0\r\n2028-02-07,Mon,1,1,Synthetic,Rest,Synthetic rest,Synthetic recovery,,0';
+  await page.getByLabel("Private Plan CSV").setInputFiles({
+    name: "synthetic.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from(`\uFEFF${csv}`),
+  });
+  await page.getByRole("button", { name: "Preview CSV" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Import preview" }),
+  ).toBeVisible();
+  await expect(page.getByText("2 source rows", { exact: false })).toBeVisible();
+  await expect(page.getByText("2 additions", { exact: false })).toBeVisible();
+  await page
+    .getByText("Review all source rows and changes", { exact: true })
+    .click();
+  await expect(
+    page.getByText("Synthetic Unicode × —\nSecond line", { exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Continue to confirmation" }).click();
+  await page.getByRole("checkbox").check();
+  await expect(
+    page.getByRole("button", { name: "Confirm import to my account" }),
+  ).toBeDisabled();
+  await page.getByRole("button", { name: "Cancel and clear CSV" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Confirm private import" }),
+  ).not.toBeVisible();
+  await page.getByRole("button", { name: "Import Plan", exact: true }).click();
+  await page
+    .getByLabel("Stable source reference")
+    .fill("synthetic-browser-source");
+  await page.getByLabel("Imported plan name").fill("Synthetic browser import");
+  await page.getByLabel("Private Plan CSV").setInputFiles({
+    name: "invalid.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from(csv.replace(",Mon,2,", ",Tue,2,")),
+  });
+  await page.getByRole("button", { name: "Preview CSV" }).click();
+  await expect(page.getByRole("alert")).toContainText(
+    "Day does not match Date",
+  );
+  await expect(
+    page.getByRole("button", { name: "Continue to confirmation" }),
+  ).toBeDisabled();
+});

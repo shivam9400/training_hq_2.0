@@ -12,6 +12,22 @@ and memory-only. Google Sign-In and private Firestore persistence become availab
 when you configure your own Firebase project; no production project is connected
 in this repository. Demo data is never copied into a signed-in account.
 
+## Private training-plan CSV import
+
+Plan > Import Plan accepts a locally downloaded, private **ten-column Plan** CSV.
+Preview validates headers/dates/weekdays, keeps day/slot/week/phase and original
+instructions/targets, and supports zero-minute Rest and Race sessions. Create with
+a stable source reference; reimport using Update Existing Imported Plan. Review
+additions, changes, conflicts and warnings, then confirm. Manual edits and status
+changes stay protected; stable IDs and bounded transactions allow safe recovery.
+Only the authenticated account can save imports. The app never accesses or changes
+the private spreadsheet. See [import guide](docs/plan-import.md) and the
+[design-only Google Sheets connection](docs/sheets-import-design.md).
+
+**Owner release step:** publish the reviewed Firestore rules before using the new
+importer against a live project; imported metadata otherwise fails safely. Existing
+records remain compatible. No live rules or application deployment was performed.
+
 ## Local development
 
 Use Node 24 (or a compatible version >=22.12). Java 21 is needed **only** for the

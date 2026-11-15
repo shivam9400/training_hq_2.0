@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ZodError } from "zod";
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { auth, configured, login, logout } from "../services/firebase";
+import type { ImportPreview } from "../services/planImport";
+import type { ImportOptions } from "../services/importExecution";
 import { userStore } from "../services/store";
 import { demoRecords } from "../services/demo";
 import {
@@ -137,6 +139,18 @@ export function useTraining() {
     loaded,
     action,
     save,
+    async importPlan(
+      preview: ImportPreview,
+      options: Omit<ImportOptions, "assertOwner">,
+    ) {
+      if (!user || !loaded || identity.current !== user.uid)
+        throw new Error("Sign in and load your private workspace first");
+      const uid = user.uid;
+      const result = await userStore(uid).importPlan(preview, options);
+      const updated = await userStore(uid).readAll();
+      if (identity.current === uid) setRecords(updated);
+      return result;
+    },
     refresh: () => {
       if (user) void load(user);
     },

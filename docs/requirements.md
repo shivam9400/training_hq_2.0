@@ -8,7 +8,10 @@ secondary accents and bottom navigation preserve the legacy concepts. Plans have
 multiple independently editable sessions on each date; Run, Race, Strength, Rest,
 Walk, Yoga, generic Training and Other remain distinct. Session duration, targets,
 instructions, Done/Partial/Skipped overrides and daily recovery check-ins are
-editable. Manual workouts and race goals are supported. Empty, loading, offline
+editable. Zero-minute Race/Rest and optional source day/slot/week/phase metadata are supported.
+The private ten-column plan CSV importer includes local preview, stable identities,
+conflict protection and authenticated bounded transaction writes (see plan-import.md).
+Manual workouts and race goals are supported. Empty, loading, offline
 and sanitized error states are explicit.
 
 Signed-out demo records are synthetic and labeled MOCK; edits stay in memory.

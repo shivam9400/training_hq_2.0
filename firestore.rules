@@ -10,14 +10,29 @@ service cloud.firestore {
     function kind(v) { return v in ['Run', 'Walk', 'Strength', 'Yoga', 'Training', 'Rest', 'Race', 'Other']; }
     function identity(d, id) { return d.id == id && id.matches('^[A-Za-z0-9_-]{1,80}$'); }
     function fields(d, names) { return d.keys().hasAll(names) && d.keys().hasOnly(names); }
+    function optionalFields(d, required, optional) { return d.keys().hasAll(required) && d.keys().hasOnly(required.concat(optional)); }
+    function hash(v) { return v is string && v.matches('^[a-f0-9]{64}$'); }
+    function source(v, session) {
+      return v is map && v.keys().hasAll(['sourceId', 'sourceHash', 'version'])
+        && v.keys().hasOnly(session ? ['sourceId', 'sourceHash', 'version', 'rowId'] : ['sourceId', 'sourceHash', 'version'])
+        && hash(v.sourceId) && hash(v.sourceHash) && v.version is int && v.version == 1
+        && (!session || ('rowId' in v && hash(v.rowId)));
+    }
+    function metadata(d) {
+      return (!('slot' in d) || (d.slot is int && num(d.slot, 1, 99)))
+        && (!('week' in d) || (d.week is int && num(d.week, 1, 9999)))
+        && (!('phase' in d) || str(d.phase, 120))
+        && (!('day' in d) || d.day in ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'])
+        && (!('importSource' in d) || (d.keys().hasAll(['slot', 'week', 'phase', 'day']) && source(d.importSource, true) && d.id == 'row_' + d.importSource.rowId && d.planId == 'imp_' + d.importSource.sourceId));
+    }
     function validPlan(d) {
-      return fields(d, ['id', 'title', 'startDate', 'endDate']) && str(d.title, 120) && d.title.size() > 0 && date(d.startDate) && date(d.endDate) && d.startDate <= d.endDate;
+      return optionalFields(d, ['id', 'title', 'startDate', 'endDate'], ['importSource']) && str(d.title, 120) && d.title.size() > 0 && date(d.startDate) && date(d.endDate) && d.startDate <= d.endDate && (!('importSource' in d) || (source(d.importSource, false) && d.id == 'imp_' + d.importSource.sourceId));
     }
     function validSession(d) {
-      return fields(d, ['id', 'planId', 'date', 'type', 'title', 'minutes', 'target', 'instructions', 'status'])
+      return optionalFields(d, ['id', 'planId', 'date', 'type', 'title', 'minutes', 'target', 'instructions', 'status'], ['slot', 'week', 'phase', 'day', 'importSource']) && metadata(d)
         && d.planId is string && d.planId.matches('^[A-Za-z0-9_-]{1,80}$') && date(d.date) && kind(d.type)
         && str(d.title, 120) && d.title.size() > 0 && num(d.minutes, 0, 900)
-        && (!(d.type in ['Run', 'Race']) || d.minutes > 0)
+        && (d.type != 'Run' || d.minutes > 0)
         && str(d.target, 200) && str(d.instructions, 4000) && d.status in ['Planned', 'Done', 'Partial', 'Skipped'];
     }
     function validWorkout(d) {
