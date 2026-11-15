@@ -98,3 +98,14 @@ resolution and one lockfile inside web rather than adding a second root package.
 The historical Android analysis remains an explicitly marked reference document;
 no active native application/development dependency remains. Deployment is a
 manual-only job in the web validation workflow; pushing/PR creation does not deploy.
+
+## Private Plan CSV import extension
+
+The source importer accepts the actual ten-column Plan CSV, not the 27-column
+legacy sheet. Plans gain an optional strict importSource map; sessions gain
+optional day/slot/week/phase and importSource. Old documents remain valid.
+Source hashes, natural date/slot keys and complete transactional snapshot checks
+protect idempotency, manual edits and statuses. Race/Rest can be zero minutes;
+Run remains positive. See [import specification](plan-import.md) for field limits,
+chunk boundaries, quota/cancellation behavior and owner-side rules publication.
+Google Sheets OAuth is deliberately design-only until its scope model is verified.

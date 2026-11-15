@@ -402,3 +402,27 @@ footer {
     scroll-behavior: auto !important;
   }
 }
+
+.import-fields {
+  margin: 12px 0;
+  overflow-wrap: anywhere;
+}
+.import-fields dt {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 8px;
+}
+.import-fields dd {
+  margin-left: 0;
+  white-space: pre-wrap;
+}
+.check-label {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.check-label input {
+  width: 24px;
+  flex: 0 0 24px;
+  margin-top: 0;
+}

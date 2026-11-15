@@ -1,5 +1,7 @@
 import { useState } from "react";
 import type { Training } from "../hooks/useTraining";
+import { ImportPlan } from "../components/ImportPlan";
+import { sortSessions, preserveEditorText } from "../services/planImport";
 import { Card } from "../components/Card";
 import {
   kinds,
@@ -46,7 +48,11 @@ function SessionCard({ session, app }: { session: Session; app: Training }) {
           {session.type}
         </span>
         <span>
-          {session.date} · {session.status}
+          {session.date}
+          {session.slot !== undefined && ` · Slot ${session.slot}`}
+          {session.week !== undefined && ` · Wk ${session.week}`}
+          {session.phase !== undefined && ` · ${session.phase}`} ·{" "}
+          {session.status}
         </span>
       </div>
       <h3>{session.title}</h3>
@@ -80,11 +86,13 @@ function SessionCard({ session, app }: { session: Session; app: Training }) {
 }
 function Today({ app }: { app: Training }) {
   const today = localDate();
-  const sessions = app.records.sessions.filter((s) => s.date === today);
+  const sessions = app.records.sessions
+    .filter((s) => s.date === today)
+    .sort(sortSessions);
   const recovery = dailyReadiness(app.records.metrics, today);
   const sorted = [...app.records.sessions]
     .filter((s) => s.date >= today)
-    .sort((a, b) => a.date.localeCompare(b.date));
+    .sort(sortSessions);
   const weekStart = new Date(`${today}T12:00:00`);
   weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7));
   const weekEnd = new Date(weekStart);
@@ -157,15 +165,32 @@ function SessionEditor({
         event.preventDefault();
         const form = event.currentTarget;
         const values = new FormData(form);
+        const titleInput = String(values.get("title"));
+        const preservedTitle = preserveEditorText(
+          titleInput,
+          existing?.title,
+          false,
+        );
         const row: Session = {
+          ...existing,
           id: existing?.id ?? freshId(),
           planId,
           date: String(values.get("date")),
           type: values.get("type") as Session["type"],
-          title: String(values.get("title")).trim(),
+          title:
+            existing?.importSource && preservedTitle === existing.title
+              ? existing.title
+              : titleInput.trim(),
           minutes: Number(values.get("minutes")),
-          target: String(values.get("target")),
-          instructions: String(values.get("instructions")),
+          target: preserveEditorText(
+            String(values.get("target")),
+            existing?.target,
+            false,
+          ),
+          instructions: preserveEditorText(
+            String(values.get("instructions")),
+            existing?.instructions,
+          ),
           status: existing?.status ?? "Planned",
         };
         void app.action(async () => {
@@ -250,9 +275,10 @@ function Plan({ app }: { app: Training }) {
   const currentPlan = app.records.plans.find((p) => p.id === planId);
   const sessions = app.records.sessions
     .filter((s) => s.planId === planId)
-    .sort((a, b) => a.date.localeCompare(b.date) || a.id.localeCompare(b.id));
+    .sort(sortSessions);
   return (
     <>
+      <ImportPlan app={app} onImported={setSelected} />
       <Card title="Training plans">
         <form
           onSubmit={(e) => {

@@ -11,6 +11,8 @@ import {
   writeBatch,
   type QueryDocumentSnapshot,
 } from "firebase/firestore";
+import { executeImport, type ImportOptions } from "./importExecution";
+import type { ImportPreview } from "./planImport";
 import { auth, db } from "./firebase";
 import {
   collections,
@@ -65,6 +67,17 @@ export function userStore(uid: string) {
   }
   return {
     readAll,
+    async importPlan(
+      preview: ImportPreview,
+      options: Omit<ImportOptions, "assertOwner">,
+    ) {
+      return executeImport(guard(), uid, preview, {
+        ...options,
+        assertOwner: () => {
+          guard();
+        },
+      });
+    },
     async save(name: Collection, row: Row) {
       const data = validateRow(name, row);
       await setDoc(doc(guard(), "users", uid, name, data.id), data);
