@@ -12,7 +12,7 @@
     "preview": "vite preview --host 0.0.0.0",
     "lint": "eslint .",
     "test": "vitest run",
-    "test:rules": "firebase emulators:exec --config ../firebase.json --project demo-training-hq --only firestore 'vitest run --config vitest.rules.config.ts'",
+    "test:rules": "node scripts/test-rules.mjs",
     "test:e2e": "playwright test",
     "format": "prettier --write src e2e scripts *.ts *.js index.html public/manifest.webmanifest",
     "format:check": "prettier --check src e2e scripts *.ts *.js index.html public/manifest.webmanifest"
