@@ -8,7 +8,7 @@ bytes are unchanged. No live Firebase/Drive/Sheets access or deployment was atte
 ## Local results (2026-11-15)
 
 - Prettier format and ESLint: pass.
-- Unit suites: **45 passed, 1 expected failure** (46 total). The existing expected
+- Unit suites: **46 passed, 1 expected failure** (47 total). The existing expected
   failure records the preserved legacy CSV alignment defect; it is not an importer
   failure. Includes actual binary FIT/CRC/sentinel parsing, TCX GPS/HR, workout CSV,
   generic Training without GPS, unsupported overlapping HR CSVs, ZIP/unsafe XML,
@@ -34,10 +34,18 @@ schema/query denial, plan CSV transactions/recovery plus imported workout summar
 raw-field rejection, foreign activity/match access, single-summary chunk cancellation,
 idempotent retries, concurrent-edit rejection, explicit reciprocal links, status
 preservation, occupied-session rejection and unmatching. It uses demo-training-hq
-only. Hosted CI initially exposed a permission failure in the ten-document recovery
-transaction (and a two-document retry). Diagnostics confirmed the 1,000-expression
-Firestore rules budget. Summary chunks now contain one workout; final hosted
-validation is pending.
+only. **All 18 passed** in [hosted validation 43745805803](https://github.com/shivam9400/training_hq_2.0/actions/runs/43745805803)
+on implementation commit 0afee76. That run also passed formatting, lint, all unit
+and mobile browser tests, synthetic and configured production builds. Artifact
+upload and deployment were skipped.
+
+Firestore's 1,000-expression evaluation ceiling is a real constraint for rich
+summary validators. Validators now dispatch by collection path, cache key sets,
+validate bounded hash lists compactly and avoid redundant imported-ID/numeric
+checks while retaining strict bounds/ownership. Single-summary transactions keep
+requests small. Negative tests prove malformed lists, embedded commas, foreign
+paths, mismatched IDs/source hashes and extra raw fields are rejected. Cancellation
+and retry tests exercise 25 summaries through actual transactions.
 
 ## Manual acceptance still required
 

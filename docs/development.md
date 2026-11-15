@@ -36,7 +36,10 @@ Unit tests include pure functions from the unchanged Apps Script in an isolated
 Node VM with a tiny synthetic CSV fixture. No Apps Script service is called.
 One test is deliberately expected to fail until a separate legacy migration fixes
 its 12-value/13-header CSV row defect. Keep that result distinct from passing new
-web logic. Future import parsers need full quoted-CSV/XML/timezone fixture suites.
+web logic. Activity adapters also have synthetic binary FIT, quoted CSV, XML namespaces,
+ZIP limits, timestamps, GPS and cross-format deduplication fixtures. No real exports
+belong in tests. The rules runner emits bounded diagnostics only for the demo suite;
+it never uploads log artifacts. See activity-import-validation.md for actual results.
 
 `npm run dev` uses development HMR without the production CSP preamble restrictions;
 `npm run build` injects the production CSP and creates the static SW allowlist.

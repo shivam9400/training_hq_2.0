@@ -100,6 +100,8 @@ Exact repeated summaries collapse. Uniquely aligned, different-format companions
 with equal type and start/end within two seconds merge complementary fields.
 A competing candidate prevents automatic selection. Near matches (start ≤5 min,
 end tolerance max(3 min, 15% elapsed)) and same-source revisions require review.
+Starts within two seconds always raise review candidates even if end times differ
+substantially, to catch elapsed-versus-timer/paused companions.
 Review offers skip, intentional distinct identity, or merge into a selected unedited
 import. Same-format conflicting distance cannot be discarded through merge; keep
 separate/skip. Metric conflicts preserve target values and add source-conflict;
@@ -120,8 +122,8 @@ old records. Rules reject raw tracks/HR arrays, unknown fields and foreign paths
 They enforce ownership/schema, not the scientific truth of user-supplied metrics.
 
 Writes use one summary per transaction, maximum three attempts. Rich schema
-validation must fit Firestore’s 1,000-expression request budget; multi-write
-summary chunks exceeded that budget in emulator tests. Reads precede
+validation must fit Firestore’s 1,000-expression request budget. Collection-specific
+validators avoid redundant checks without relaxing schemas. Reads precede
 writes; exact already-applied payloads are no-ops. Progress advances after commits.
 A cancellation/account switch stops future chunks; an already in-flight chunk may
 commit. Completed chunks remain. Reload private records, select the same files,

@@ -65,6 +65,7 @@ this checkout. On shared machines use a private browser session.
 
 ```sh
 cd web
+npm run format:check
 npm run lint
 npm test
 npm run test:rules      # demo-training-hq emulator, no Firebase login/real project
