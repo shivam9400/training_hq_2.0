@@ -9,8 +9,14 @@ service cloud.firestore {
     function instant(v) { return v is string && v.matches('^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])T([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9](\\.[0-9]{1,3})?Z$'); }
     function kind(v) { return v in ['Run', 'Walk', 'Strength', 'Yoga', 'Training', 'Rest', 'Race', 'Other']; }
     function identity(d, id) { return d.id == id && id.matches('^[A-Za-z0-9_-]{1,80}$'); }
-    function fields(d, names) { return d.keys().hasAll(names) && d.keys().hasOnly(names); }
-    function optionalFields(d, required, optional) { return d.keys().hasAll(required) && d.keys().hasOnly(required.concat(optional)); }
+    function fields(d, names) {
+      let keys = d.keys();
+      return keys.size() == names.size() && keys.hasOnly(names);
+    }
+    function optionalFields(d, required, optional) {
+      let keys = d.keys();
+      return keys.hasAll(required) && keys.hasOnly(required.concat(optional));
+    }
     function hash(v) { return v is string && v.matches('^[a-f0-9]{64}$'); }
     function source(v, session) {
       return v is map && v.keys().hasAll(['sourceId', 'sourceHash', 'version'])

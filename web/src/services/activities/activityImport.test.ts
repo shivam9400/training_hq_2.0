@@ -307,6 +307,24 @@ describe("quality, deduplication and matching", () => {
     expect(retry.rows).toHaveLength(1);
     expect(retry.rows[0].action).toBe("unchanged");
   });
+  it("requires review for exact-start companions with conflicting elapsed/end times", async () => {
+    const a = await normalizeActivity(
+      raw("FIT", fileHash, START, START + 3000000, "Walk"),
+    );
+    const b = await normalizeActivity(
+      raw("TCX", fileHash, START, START + 6000000, "Walk"),
+    );
+    const preview = await activityPreview("user-a", [a, b], []);
+    expect(preview.rows.map((r) => r.action)).toEqual(["review", "review"]);
+    const incoming = await activityPreview("user-a", [b], [a.workout]);
+    expect(incoming.rows[0].action).toBe("review");
+    const merged = await activityPreview("user-a", [b], [a.workout], {
+      [incoming.rows[0].key]: `merge:${a.workout.id}`,
+    });
+    expect(
+      merged.rows.find((r) => r.action === "enrichment")?.incoming.qualityFlags,
+    ).toContain("source-conflict");
+  });
   it("requires review for ambiguous matches and protects manually edited summaries", async () => {
     const parsed = await processActivities([
       {

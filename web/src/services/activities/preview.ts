@@ -21,10 +21,16 @@ const overlap = (a: Workout, b: Workout) =>
   a.provenance?.aliases.some((alias) =>
     b.provenance?.aliases.includes(alias),
   ) ?? false;
-const near = (a: Workout, b: Workout) =>
-  Math.abs(Date.parse(a.start) - Date.parse(b.start)) <= 300000 &&
-  Math.abs(Date.parse(a.end) - Date.parse(b.end)) <=
-    Math.max(180000, (Date.parse(a.end) - Date.parse(a.start)) * 0.15);
+const near = (a: Workout, b: Workout) => {
+  const startDifference = Math.abs(Date.parse(a.start) - Date.parse(b.start));
+  // Exact starts can be paused/timer-time companions even when end durations disagree.
+  return (
+    startDifference <= 2000 ||
+    (startDifference <= 300000 &&
+      Math.abs(Date.parse(a.end) - Date.parse(b.end)) <=
+        Math.max(180000, (Date.parse(a.end) - Date.parse(a.start)) * 0.15))
+  );
+};
 const disjoint = (a: Workout, b: Workout) =>
   a.provenance &&
   b.provenance &&
@@ -63,6 +69,12 @@ export async function mergeSummaries(
   )
     result.title = extra.title;
   const flags = new Set([...primary.qualityFlags, ...extra.qualityFlags]);
+  if (
+    primary.type !== extra.type ||
+    Math.abs(Date.parse(primary.start) - Date.parse(extra.start)) > 2000 ||
+    Math.abs(Date.parse(primary.end) - Date.parse(extra.end)) > 2000
+  )
+    flags.add("source-conflict");
   for (const [field, source] of [
     ["maxHr", "maxHr"],
     ["calories", "calories"],

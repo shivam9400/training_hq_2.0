@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-// Demo emulator only. Capture bounded startup diagnostics, never test records or credentials.
+// Demo emulator only; all test records are synthetic. Bounded CI diagnostics never use live credentials.
 const child = spawn(
   "firebase",
   [
@@ -14,18 +14,13 @@ const child = spawn(
   ],
   { stdio: ["ignore", "pipe", "pipe"] },
 );
-let startup = "",
-  started = false;
+let first = "",
+  last = "";
 function relay(stream, bytes) {
   const text = bytes.toString();
   stream.write(bytes);
-  if (!started) {
-    const marker = text.indexOf("Running script");
-    startup = (startup + (marker < 0 ? text : text.slice(0, marker))).slice(
-      -12000,
-    );
-    if (marker >= 0) started = true;
-  }
+  first = (first + text).slice(0, 5000);
+  last = (last + text).slice(-7000);
 }
 child.stdout.on("data", (bytes) => relay(process.stdout, bytes));
 child.stderr.on("data", (bytes) => relay(process.stderr, bytes));
@@ -34,12 +29,12 @@ child.on("error", () => {
   process.exitCode = 1;
 });
 child.on("close", (code) => {
-  if (code !== 0 && !started && process.env.CI) {
-    const message = startup
+  if (code !== 0 && process.env.CI) {
+    const message = `${first}\n[Bounded diagnostic tail]\n${last}`
       .replaceAll("%", "%25")
       .replaceAll("\r", "%0D")
       .replaceAll("\n", "%0A");
-    console.error(`::error title=Demo emulator startup::${message}`);
+    console.error(`::error title=Demo emulator validation::${message}`);
   }
   process.exitCode = code ?? 1;
 });
