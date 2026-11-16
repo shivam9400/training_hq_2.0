@@ -1,0 +1,82 @@
+:root {
+  color-scheme: dark;
+  font-family: system-ui, sans-serif;
+  background: #091121;
+  color: #edf2fb;
+}
+body {
+  margin: 0;
+}
+main {
+  max-width: 960px;
+  margin: auto;
+  padding: 20px;
+}
+section {
+  padding: 18px;
+  margin: 18px 0;
+  background: #14223a;
+  border-radius: 16px;
+}
+button,
+input,
+select {
+  font: inherit;
+  padding: 10px;
+  border-radius: 8px;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+button {
+  margin: 5px;
+  background: #fc923b;
+  color: #111;
+  border: 0;
+  cursor: pointer;
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+input[type="text"],
+input[type="url"] {
+  display: block;
+  width: 100%;
+  margin: 8px 0;
+}
+label {
+  display: block;
+  margin: 12px 0;
+}
+p,
+td {
+  overflow-wrap: anywhere;
+}
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.9rem;
+}
+th,
+td {
+  text-align: left;
+  padding: 8px;
+  border: 1px solid #53627c;
+}
+a {
+  color: #ffb675;
+}
+.banner {
+  border-left: 4px solid #fc923b;
+  padding: 12px;
+}
+.scroll {
+  overflow: auto;
+}
+.file {
+  border-top: 1px solid #53627c;
+  padding: 8px;
+}
+code {
+  overflow-wrap: anywhere;
+}

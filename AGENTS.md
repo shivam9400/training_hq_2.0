@@ -13,3 +13,5 @@
 - Activity parsing stays in a bounded disposable browser worker; persist normalized summaries only. Keep reported/calculated metrics distinct, raw routes/HR series local, and session matching/status changes explicitly confirmed. See docs/activity-import.md.
 - Use synthetic fixtures. From web/: npm ci; npm run lint; npm test; npm run test:rules; npm run build; npm run test:e2e. Emulator tests use only demo-training-hq. Report passed, expected-failure and unrun checks separately.
 - Pages deployment is manual dispatch on main with deploy=true, after review and separate user action. Keep PR/push validation read-only and deployment token grants job-scoped.
+
+- The owner-approved test-only Drive diagnostic lives in web/drive-diagnostic/, served only by npm run dev:drive-test on http://localhost:5173. It requests only drive.file via ignored local replacement-client configuration. No Firebase imports, Drive writes, production deployment or real data. See docs/drive-oauth-test-guide.md. Keep this entry point out of production and distinguish mocked tests from actual authorized Google outcomes.

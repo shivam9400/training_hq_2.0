@@ -2,7 +2,39 @@ import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 export default defineConfig({
   base: "/training_hq_2.0/",
+  envPrefix: "VITE_FIREBASE_",
   plugins: [
+    {
+      name: "exclude-local-drive-diagnostic",
+      configureServer(server) {
+        server.middlewares.use((req, res, next) => {
+          let path = req.url ?? "";
+          try {
+            path = decodeURIComponent(path).replaceAll("\\", "/");
+          } catch {
+            res.statusCode = 400;
+            res.end();
+            return;
+          }
+          if (path.toLowerCase().includes("drive-diagnostic")) {
+            res.statusCode = 404;
+            res.end();
+            return;
+          }
+          next();
+        });
+      },
+    },
+    {
+      name: "production-diagnostic-module-boundary",
+      apply: "build",
+      load(id) {
+        if (id.replaceAll("\\", "/").includes("/drive-diagnostic/"))
+          throw new Error(
+            "Diagnostic modules cannot enter the production application.",
+          );
+      },
+    },
     react(),
     {
       name: "production-content-security-policy",
@@ -43,5 +75,8 @@ export default defineConfig({
       },
     },
   },
-  test: { include: ["src/**/*.test.ts"], environment: "node" },
+  test: {
+    include: ["src/**/*.test.ts", "drive-diagnostic/**/*.test.ts"],
+    environment: "node",
+  },
 });

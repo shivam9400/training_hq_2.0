@@ -1,3 +1,8 @@
+A separate owner-operated [localhost OAuth diagnostic](drive-oauth-test-guide.md)
+is now implemented for the approved test project using drive.file only. It is not
+a production connection; real Google grant outcomes are still unrun. The production
+gate and unverified folder-setting implementation below remain unchanged.
+
 # Google Drive authorization and import feasibility
 
 **Status: live OAuth/Drive access remains disabled.** Private unverified folder
