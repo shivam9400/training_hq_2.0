@@ -12,7 +12,7 @@ Drive authorization, Sheets write, Strava sync or legacy deployment change is ma
 | Accounts | Configurable Google popup login, explicit switch/sign-out, memory-only state, empty cloud workspace | Live provider/browser validation and advanced offline policy |
 | Data | Strict per-owner Firestore rules, validated schemas, export and resumable client deletion | Server-enforced deletion coordination/retention, high-volume exports |
 | PWA/hosting | Static-only shell cache, manifest/icons, manual Pages workflow | Owner-configured Firebase/Pages, production policy review and explicit deployment |
-| Drive | Conservative scope/ingestion design | Verified scope model, OAuth publishing/verification, production Picker access |
+| Drive | Owner-only unverified folder reference, current official API scope evidence, conservative Picker design | Verified scope model, OAuth publishing/verification, production Picker access |
 
 Before real users: create a Spark project, deploy/test rules, enable Google Auth,
 verify authorized domains, review hosting-origin trust, quotas and deletion limits,

@@ -11,6 +11,7 @@ import {
   writeBatch,
   type QueryDocumentSnapshot,
 } from "firebase/firestore";
+import { healthSyncStore } from "./healthSyncConfig";
 import { executeImport, type ImportOptions } from "./importExecution";
 import type { ImportPreview } from "./planImport";
 import { saveActivityImport } from "./activities/persistence";
@@ -71,6 +72,11 @@ export function userStore(uid: string) {
   }
   return {
     readAll,
+    healthSync() {
+      return healthSyncStore(guard(), uid, () => {
+        guard();
+      });
+    },
     async importActivities(
       preview: ActivityPreview,
       options: Omit<ImportOptions, "assertOwner">,
@@ -109,6 +115,10 @@ export function userStore(uid: string) {
       guard();
     },
     async deleteAll() {
+      // Fail closed before deleting Auth if the private folder setting cannot be removed.
+      await healthSyncStore(guard(), uid, () => {
+        guard();
+      }).remove();
       // Bounded batches, idempotent and resumable if interrupted. Only known owner paths.
       for (const name of collections) {
         for (;;) {

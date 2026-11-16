@@ -106,3 +106,12 @@ Future Drive authorization may use a different Google account from Firebase logi
 that is a separate explicit consent stored under the owning Firebase UID, never
 cross-user data authorization. No OAuth grants/tokens are implemented or stored
 by the local file importer. See activity-import.md and drive-integration.md.
+
+## Unverified Drive folder references
+
+Only a fixed owner-only integrations/health-sync document is permitted; see
+[its exact schema, exports and deletion behavior](drive-folder-settings.md).
+Unknown fields, tokens, identity claims and verified status are rejected. URL
+validation never implies Google access. No GIS/Picker/token/Drive request path is
+enabled; current policy and exact permission tests remain blocked/unrun as recorded
+in drive-feasibility-decision.md. Training data loading does not query this new path.

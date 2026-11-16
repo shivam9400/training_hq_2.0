@@ -129,3 +129,14 @@ rules do not guarantee the scientific truth or referential integrity of data an
 owner intentionally writes through another client. Dashboard actuals require both
 sides of a link. See [import specification](activity-import.md) for exact gates,
 identities, ambiguous candidates, source-conflict policy and resumable chunks.
+
+## Health Sync folder reference boundary
+
+The fixed `users/{uid}/integrations/health-sync` path is separate from the five
+training collections. It stores only version/id, bounded folderId and constant
+unverified access. Settings loads it independently so older live rules cannot
+break core training loads. Configuration has its own private export; account
+deletion removes it before Auth and fails closed if cleanup is denied. Client
+guards and view generations reject stale account results. See drive-folder-settings.md.
+No live OAuth, Picker, Drive listing/download or tokens are enabled. The current
+feasibility evidence and unresolved production gate are in drive-feasibility-decision.md.

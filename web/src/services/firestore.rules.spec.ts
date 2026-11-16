@@ -676,3 +676,92 @@ it("prevents double assignment, stale status replacement and another user modify
     ),
   ).rejects.toBeInstanceOf(ImportStale);
 });
+
+import { healthSyncStore, parseFolderUrl } from "./healthSyncConfig";
+it("isolates folder references across users and permits only the unverified fixed configuration schema", async () => {
+  const a = modular("user-a"),
+    b = modular("user-b");
+  const config = parseFolderUrl(
+    "https://drive.google.com/drive/folders/synthetic-folder-reference-0001",
+  );
+  const own = doc(a, "users/user-a/integrations/health-sync");
+  const foreign = doc(b, "users/user-a/integrations/health-sync");
+  await assertFails(setDoc(foreign, config));
+  await healthSyncStore(a, "user-a", () => {}).save(config);
+  expect(await healthSyncStore(a, "user-a", () => {}).read()).toEqual(config);
+  await assertFails(getDoc(foreign));
+  await assertFails(updateDoc(foreign, { folderId: "synthetic-other-folder" }));
+  await assertFails(deleteDoc(foreign));
+  await assertFails(
+    getDocs(query(collection(a, "users/user-a/integrations"), limit(1))),
+  );
+  await assertFails(
+    getDoc(
+      doc(
+        env.unauthenticatedContext().firestore(),
+        "users/user-a/integrations/health-sync",
+      ),
+    ),
+  );
+  for (const patch of [
+    { id: "other" },
+    { version: 2 },
+    { access: "verified" },
+    { folderId: "../other" },
+    { folderId: "a".repeat(129) },
+    { accessToken: "synthetic" },
+    { refreshToken: "synthetic" },
+    { googleSubject: "synthetic" },
+    { uid: "user-b" },
+    { files: [] },
+  ])
+    await assertFails(setDoc(own, { ...config, ...patch }));
+  await assertFails(setDoc(doc(a, "users/user-a/integrations/other"), config));
+  await assertFails(
+    setDoc(
+      doc(a, "users/user-a/integrations/health-sync/nested/record"),
+      config,
+    ),
+  );
+  await assertSucceeds(
+    setDoc(doc(a, "users/user-a/workouts/record"), fixtures.workouts),
+  );
+  await healthSyncStore(a, "user-a", () => {}).remove();
+  expect(await healthSyncStore(a, "user-a", () => {}).read()).toBeNull();
+  expect((await getDoc(doc(a, "users/user-a/workouts/record"))).exists()).toBe(
+    true,
+  );
+});
+it("keeps each Firebase account's folder separate and rejects stale owner guards before and after reads", async () => {
+  const a = modular("user-a"),
+    b = modular("user-b");
+  const first = parseFolderUrl(
+    "https://drive.google.com/drive/folders/synthetic-folder-a",
+  );
+  const second = parseFolderUrl(
+    "https://drive.google.com/drive/folders/synthetic-folder-b",
+  );
+  await healthSyncStore(a, "user-a", () => {}).save(first);
+  await healthSyncStore(b, "user-b", () => {}).save(second);
+  expect((await healthSyncStore(a, "user-a", () => {}).read())?.folderId).toBe(
+    first.folderId,
+  );
+  expect((await healthSyncStore(b, "user-b", () => {}).read())?.folderId).toBe(
+    second.folderId,
+  );
+  const stale = healthSyncStore(a, "user-a", () => {
+    throw new Error("Account changed");
+  });
+  await expect(stale.read()).rejects.toThrow("Account changed");
+  await expect(stale.save(second)).rejects.toThrow("Account changed");
+  await expect(stale.remove()).rejects.toThrow("Account changed");
+  let checks = 0;
+  await expect(
+    healthSyncStore(a, "user-a", () => {
+      if (++checks > 1) throw new Error("Account changed");
+    }).read(),
+  ).rejects.toThrow("Account changed");
+  expect((await healthSyncStore(a, "user-a", () => {}).read())?.folderId).toBe(
+    first.folderId,
+  );
+});
