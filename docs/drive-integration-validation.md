@@ -9,7 +9,8 @@
   strict configuration fields and inability to claim verified access.
 - Mobile Chromium: **7 passed** at 390×844. New browser flow checks local URL
   validation, sign-in save gate, unavailable Connect/Sync controls, no Google API
-  or OAuth requests, form cleanup on navigation and preserved local import entry.
+  or OAuth requests in the unconfigured demo, form cleanup on navigation and preserved
+  local import entry. Configured folder saves use private Firestore only.
 - Existing synthetic nested ZIP, FIT/TCX/CSV companions, repeated imports, GPS
   validation, plan/status matching and static-only caching tests continue passing.
   These are **not** Drive listing or OAuth tests.
@@ -18,7 +19,12 @@
 - Local Firestore emulator: runtime download from storage.googleapis.com blocked;
   no live Firebase fallback. The PR workflow runs the actual emulator suite on
   Ubuntu, including 18 existing tests and two new configuration isolation/lifecycle
-  tests (**20 total**). Hosted outcome pending initial PR validation.
+  tests (**20 total**). **All 20 passed** in
+  [hosted validation 43869383258](https://github.com/shivam9400/training_hq_2.0/actions/runs/43869383258)
+  on implementation commit bb25e47; all other workflow checks passed and deployment
+  and artifact upload were skipped.
+- Production npm audit: zero advisories. actionlint, whitespace validation and
+  gitleaks pass; no secrets detected.
 
 ## Exact OAuth/Drive tests not run
 
