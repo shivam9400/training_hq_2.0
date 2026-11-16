@@ -31,7 +31,13 @@ Local results:
 - Local Firestore emulator: runtime download blocked by workspace network policy;
   no live database fallback. PR CI runs the unchanged 20-test emulator suite.
 
-Hosted validation: pending initial PR run. The workflow additionally builds the
+[Hosted validation 43895465891](https://github.com/shivam9400/training_hq_2.0/actions/runs/43895465891)
+passes all checks on implementation commit 26c0412, including the unchanged
+**20 Firestore emulator tests**, both builds, production-isolation scan and all
+unit/browser checks. Deployment and artifact upload were skipped. Production npm
+audit reports **zero advisories** and gitleaks reports no leaks.
+
+The workflow additionally builds the
 local diagnostic and runs mocked diagnostic browser tests; Pages still uploads only
 web/dist on an explicitly requested main-branch deployment. No diagnostic output,
 environment, raw file, results, token or log artifact is uploaded by these new steps.
