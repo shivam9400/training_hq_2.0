@@ -42,7 +42,9 @@ Reported/GPS distance and provenance remain separate, and noisy tracks do not wi
 
 ## Planned, not represented as implemented
 
-Production Google Drive OAuth/Picker and remote revision manifests; continuous HR
+Unverified owner-only folder references and explicit unavailable Connect/Sync
+controls are implemented; URL syntax acceptance is never access verification.
+Production Google Drive OAuth/Picker and remote revision manifests remain planned; continuous HR
 CSV series storage; full legacy load/HR-efficiency/checkpoint/badge algorithms;
 personalized HR/HRV baseline settings; richer calendar and plan swaps; persistent
 encrypted health cache. Local activity ingestion and explicit matching are

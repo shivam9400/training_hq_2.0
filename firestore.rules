@@ -118,6 +118,16 @@ service cloud.firestore {
     match /users/{uid}/metrics/{id} {
       allow create, update: if owner(uid) && identity(request.resource.data, id) && validMetric(request.resource.data);
     }
+    match /users/{uid}/integrations/health-sync {
+      allow get, delete: if owner(uid);
+      allow create, update: if owner(uid)
+        && fields(request.resource.data, ['id', 'version', 'folderId', 'access'])
+        && request.resource.data.id == 'health-sync'
+        && request.resource.data.version is int && request.resource.data.version == 1
+        && request.resource.data.folderId is string
+        && request.resource.data.folderId.matches('^[A-Za-z0-9_-]{1,128}$')
+        && request.resource.data.access == 'unverified';
+    }
     // Parent profiles, unknown collections and all nested paths are denied.
     match /{document=**} { allow read, write: if false; }
   }

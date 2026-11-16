@@ -45,6 +45,23 @@ See [activity import guide and limits](docs/activity-import.md),
 of the reviewed rules is required for the new optional summary/link fields; no live
 rules, permissions or deployment are changed by this implementation.
 
+## Health Sync folder integration gate
+
+Settings > Health Sync Integration saves an owner-only **unverified folder reference**
+after local URL validation. It does not authorize Google Drive or verify access.
+Connect Drive and Activities > Sync Activities remain disabled: current policy and
+exact future-child permission tests have not been completed. Use the existing local
+file importer. A different Drive Google account is supported by the future design,
+not falsely represented as connected now.
+
+Read the [feasibility decision and evidence](docs/drive-feasibility-decision.md),
+[folder settings/rules release step](docs/drive-folder-settings.md),
+[Picker fallback design](docs/drive-picker-fallback.md) and
+[validation outcomes](docs/drive-integration-validation.md). Owner rule publication
+is required for the new settings path; existing training loading is independent.
+Account deletion fails closed until configuration cleanup is permitted. No OAuth
+client, production permission, live access or deployment is configured by this PR.
+
 ## Local development
 
 Use Node 24 (or a compatible version >=22.12). Java 21 is needed **only** for the

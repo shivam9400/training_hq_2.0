@@ -1,6 +1,10 @@
 # Google Drive authorization and import feasibility
 
-**Status: design only. Production Drive access is intentionally disabled.**
+**Status: live OAuth/Drive access remains disabled.** Private unverified folder
+references are now implemented; this document's authorization/ingestion sections
+remain future design. See the [16 November feasibility decision and official API
+evidence](drive-feasibility-decision.md), [implemented settings](drive-folder-settings.md)
+and [per-file Picker fallback contract](drive-picker-fallback.md).
 No Drive scope is requested by the implemented Firebase Google login. Authentication
 and authorization to a user's Drive exports are separate consents. The browser
 must not inherit a developer's Drive access, publish files or embed a client secret.
@@ -77,7 +81,8 @@ bind the selected Drive identity (issuer + subject), not an editable email field
 an assumption that Firebase's token grants Drive access. Scope any future connection
 configuration to `users/{authenticatedUid}/driveConnections/{connectionId}` with
 strict owner-only rules/schema added and emulator-tested before implementation.
-Current rules deny this proposed collection. Folder ID, Drive subject, reviewed
+Current rules permit only the unverified fixed folder reference described in
+drive-folder-settings.md; verified identities, scopes and manifests remain denied. Folder ID, Drive subject, reviewed
 scope and non-secret cursor/version belong only there; no token, raw file or route.
 Selecting a Drive account never changes the Firebase owner path or permissions. Keep short-lived
 Drive access tokens in memory only, separate from Firebase ID tokens. No refresh

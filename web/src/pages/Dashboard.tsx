@@ -4,6 +4,10 @@ import {
   ImportActivities,
   WorkoutFields,
 } from "../components/ImportActivities";
+import {
+  HealthSyncIntegration,
+  DriveSyncGate,
+} from "../components/HealthSyncIntegration";
 import { ActivityMatch } from "../components/ActivityMatch";
 import { confirmedActual } from "../services/activities/matching";
 import { ImportPlan } from "../components/ImportPlan";
@@ -619,6 +623,7 @@ function Progress({ app }: { app: Training }) {
 function Activities({ app }: { app: Training }) {
   return (
     <>
+      <DriveSyncGate />
       <ImportActivities app={app} />
       <Card title="Recent workouts">
         {[...app.records.workouts]
@@ -789,8 +794,9 @@ function Health({ app }: { app: Training }) {
       <Card title="Health data sources">
         <p>
           This PWA does not read Android Health Connect. Manual check-ins work
-          now; private CSV/TCX ingestion and Google Drive authorization are
-          future work.
+          now. Local workout file import is available in Activities. Continuous
+          health-series ingestion and Google Drive authorization remain future
+          work.
         </p>
         <p>
           Nothing synchronizes while the browser is closed. Readiness is a
@@ -850,10 +856,12 @@ function Settings({ app }: { app: Training }) {
           devices should use a private browser session.
         </p>
       </Card>
+      <HealthSyncIntegration app={app} />
       <Card title="Export data">
         <p>
           Your download contains private records. Store it securely and do not
-          commit it to Git.
+          commit it to Git. Folder integration settings are exported separately
+          in Health Sync Integration.
         </p>
         <button
           disabled={disabled(app)}
