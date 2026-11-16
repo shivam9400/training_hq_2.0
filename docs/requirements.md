@@ -11,7 +11,10 @@ instructions, Done/Partial/Skipped overrides and daily recovery check-ins are
 editable. Zero-minute Race/Rest and optional source day/slot/week/phase metadata are supported.
 The private ten-column plan CSV importer includes local preview, stable identities,
 conflict protection and authenticated bounded transaction writes (see plan-import.md).
-Manual workouts and race goals are supported. Empty, loading, offline
+Local Health Sync ZIP/FIT/TCX/workout CSV/GPX/timestamped KML import, preview,
+GPS quality checks, deduplication, protected incremental writes and explicit plan
+matching are implemented (activity-import.md). Continuous HR CSV ingestion remains
+unsupported. Manual workouts and race goals are supported. Empty, loading, offline
 and sanitized error states are explicit.
 
 Signed-out demo records are synthetic and labeled MOCK; edits stay in memory.
@@ -39,12 +42,11 @@ Reported/GPS distance and provenance remain separate, and noisy tracks do not wi
 
 ## Planned, not represented as implemented
 
-Production Google Drive OAuth/Picker and CSV/TCX ingestion; incremental import
-manifests and file revisions; automatic workout-plan matching UI and conflict
-resolution; full legacy load/HR-efficiency/checkpoint/badge algorithms; personalized
-HR/HRV baseline settings; richer calendar and plan swaps; persistent encrypted
-health cache. Pure classification/matching/GPS primitives and legacy regression
-tests are present, but they do not constitute a production file importer.
+Production Google Drive OAuth/Picker and remote revision manifests; continuous HR
+CSV series storage; full legacy load/HR-efficiency/checkpoint/badge algorithms;
+personalized HR/HRV baseline settings; richer calendar and plan swaps; persistent
+encrypted health cache. Local activity ingestion and explicit matching are
+implemented, with physical Samsung picker/live account acceptance still manual.
 
 No Android app, paid Strava API, Render, Cloud Functions/Cloud Run billing,
 background worker backend or publicly shared health files is required or enabled.

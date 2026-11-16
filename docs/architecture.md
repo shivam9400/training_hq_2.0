@@ -71,8 +71,8 @@ listed as future work, not mocked as computed user results.
 Pure primitives preserve 85%/40% duration thresholds, exact-source identity,
 kind-aware single-use session matching, and conservative GPS correction. GPS
 validation additionally rejects long gaps and measures accepted time coverage
-instead of trusting only first/last sample span. No route access or production
-import UI is wired to these primitives. Legacy regression tests include the known
+instead of trusting only first/last sample span. Local file processing now wires these primitives to the activity importer; no
+production Drive authorization or raw route persistence is enabled. Legacy regression tests include the known
 CSV 12-value/13-header defect as an explicit expected failure.
 
 ## Static PWA caching
@@ -109,3 +109,23 @@ protect idempotency, manual edits and statuses. Race/Rest can be zero minutes;
 Run remains positive. See [import specification](plan-import.md) for field limits,
 chunk boundaries, quota/cancellation behavior and owner-side rules publication.
 Google Sheets OAuth is deliberately design-only until its scope model is verified.
+
+## Browser-local activity importer
+
+`services/activities/` separates bounded archive expansion, FIT/XML/CSV adapters,
+normalization, GPS checks, conservative deduplication/preview, transaction writes
+and explicit session matching. `worker.ts` holds raw bytes/samples; UI receives
+summaries only. A 45-second disposable worker protects the main thread. Raw files,
+tracks and HR series never become Firestore or service-worker cache entries.
+
+Workouts gain optional strict `details` and `provenance` maps (units: seconds,
+meters, bpm, kcal, cadence with explicit unit), plus optional `matchSessionId`.
+Details retain reported and timestamp-derived durations, metric source tags,
+per-format reported distances, sample counts and extrema. Provenance stores version,
+bounded hash aliases, format list and content baseline hash. Sessions optionally
+retain `actualWorkoutId`. Old documents remain valid. Reciprocal consistency is
+transactionally checked by the client, while rules enforce owner paths and schemas;
+rules do not guarantee the scientific truth or referential integrity of data an
+owner intentionally writes through another client. Dashboard actuals require both
+sides of a link. See [import specification](activity-import.md) for exact gates,
+identities, ambiguous candidates, source-conflict policy and resumable chunks.

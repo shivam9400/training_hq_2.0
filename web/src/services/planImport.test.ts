@@ -156,6 +156,31 @@ describe("stable import preview and update protection", () => {
     );
     expect(unchangedDone.rows[0].kind).toBe("unchanged");
     expect(unchangedDone.rows[0].expected?.status).toBe("Skipped");
+    const linked = await makePreview(
+      Papa.unparse(rows),
+      [first.plan],
+      first.rows.map((r) => ({
+        ...r.incoming,
+        actualWorkoutId: "synthetic-confirmed-workout",
+      })),
+      "update",
+    );
+    expect(linked.rows.every((r) => r.kind === "conflict")).toBe(true);
+    const linkedUnchanged = await makePreview(
+      syntheticCsv(4),
+      [first.plan],
+      first.rows.map((r) => ({
+        ...r.incoming,
+        actualWorkoutId: "synthetic-confirmed-workout",
+      })),
+      "update",
+    );
+    expect(linkedUnchanged.rows.every((r) => r.kind === "unchanged")).toBe(
+      true,
+    );
+    expect(linkedUnchanged.rows[0].expected?.actualWorkoutId).toBe(
+      "synthetic-confirmed-workout",
+    );
   });
   it("retains missing source rows and edited plan metadata rather than deleting/overwriting", async () => {
     const first = await makePreview();

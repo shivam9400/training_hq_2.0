@@ -28,6 +28,23 @@ the private spreadsheet. See [import guide](docs/plan-import.md) and the
 importer against a live project; imported metadata otherwise fails safely. Existing
 records remain compatible. No live rules or application deployment was performed.
 
+## Private Health Sync activity import
+
+Activities > **Import Activities** accepts local ZIP/FIT/TCX/workout CSV/GPX and
+optional timestamped KML. A browser worker validates files, GPS quality and duplicate
+candidates before confirmation. Reported and validated GPS distances remain distinct;
+generic Training and non-GPS workouts are supported. Raw files/routes/HR series stay
+local. Sign-in is required to save owner-only summaries. Reimports and interrupted
+chunks are retry-safe; manual edits remain protected. Continuous HR CSV ingestion
+is explicitly unsupported. Match/unmatch sessions with confirmation; completion is
+changed only through a separate explicit option. Today/Progress show confirmed actuals.
+
+See [activity import guide and limits](docs/activity-import.md),
+[activity validation outcomes](docs/activity-import-validation.md), and
+[future Drive authorization design](docs/drive-integration.md). Owner publication
+of the reviewed rules is required for the new optional summary/link fields; no live
+rules, permissions or deployment are changed by this implementation.
+
 ## Local development
 
 Use Node 24 (or a compatible version >=22.12). Java 21 is needed **only** for the
@@ -48,6 +65,7 @@ this checkout. On shared machines use a private browser session.
 
 ```sh
 cd web
+npm run format:check
 npm run lint
 npm test
 npm run test:rules      # demo-training-hq emulator, no Firebase login/real project
