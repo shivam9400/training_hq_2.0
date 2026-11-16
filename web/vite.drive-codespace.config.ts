@@ -1,4 +1,5 @@
 import { defineConfig, mergeConfig, type UserConfig } from "vite";
+import { codespaceRequestFailure } from "./drive-diagnostic/codespace-request.ts";
 import localConfig from "./vite.drive-test.config.ts";
 import { codespaceSite, csp } from "./drive-diagnostic/runtime.ts";
 export default defineConfig(async (env) => {
@@ -29,7 +30,10 @@ export default defineConfig(async (env) => {
       }),
     },
     server: {
-      host: "0.0.0.0",
+      host: "127.0.0.1",
+      origin,
+      ws: { protocol: "wss", host: hostname, clientPort: 443 },
+      forwardConsole: false,
       port: 5173,
       strictPort: true,
       allowedHosts: [hostname],
@@ -50,18 +54,52 @@ export default defineConfig(async (env) => {
           )
             throw new Error("Firebase forbidden in diagnostic.");
         },
+        configResolved(config) {
+          if (
+            config.server.host !== "127.0.0.1" ||
+            config.server.port !== 5173 ||
+            config.server.allowedHosts === true
+          )
+            throw new Error(
+              "Codespace diagnostic requires loopback port 5173 and an explicit host allowlist.",
+            );
+        },
         configureServer(server) {
+          const failure = (
+            req: import("node:http").IncomingMessage,
+            upgrade = false,
+          ) =>
+            codespaceRequestFailure(
+              {
+                headers: req.headers,
+                rawHeaders: req.rawHeaders,
+                remoteAddress: req.socket.remoteAddress,
+              },
+              origin,
+              upgrade,
+            );
           server.middlewares.use((req, res, next) => {
-            const host = req.headers["x-forwarded-host"] ?? req.headers.host;
-            if (
-              ![hostname, "localhost:5173"].includes(String(host)) ||
-              (req.headers.origin && req.headers.origin !== origin)
-            ) {
-              res.statusCode = 403;
-              res.end("Codespace origin required.");
+            const reason = failure(req);
+            if (reason) {
+              res.writeHead(403, {
+                "Content-Type": "text/plain",
+                "Cache-Control": "no-store",
+                "X-Training-HQ-Boundary": reason,
+              });
+              res.end(`Codespace diagnostic request denied (${reason}).`);
               return;
             }
             next();
+          });
+          // Upgrade requests bypass Connect middleware. Validate them before
+          // Vite handles the socket; its own WebSocket token check stays enabled.
+          server.httpServer?.prependListener("upgrade", (req, socket) => {
+            if (failure(req, true)) {
+              socket.write(
+                "HTTP/1.1 403 Forbidden\r\nConnection: close\r\nContent-Length: 0\r\n\r\n",
+              );
+              socket.destroy();
+            }
           });
         },
       },

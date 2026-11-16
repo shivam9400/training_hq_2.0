@@ -155,7 +155,9 @@ an embedded preview. The server only accepts its computed exact Codespaces host:
 `https://CODESPACE_NAME-5173.app.github.dev`. Add that exact origin (no path) to the
 replacement test Web Client and its origin referrer to the test Picker key. Enter
 public settings on the page as above. Do not make the port public or tunnel the
-localhost-only entry point. The application cannot prove port privacy; the owner
+localhost-only entry point. The server binds loopback, validates proxy headers and uses the exact HTTPS/WSS
+forwarded origin. See [proxy troubleshooting and regression coverage](drive-codespace-proxy-fix.md)
+for a blank page, module 403 or private-port sign-in redirect. The application cannot prove port privacy; the owner
 must verify it in Ports. A Codespaces instance/proxy/real OAuth session was not
 launched or tested here. If Google also rejects this origin, stop: an owner-approved
 verifiable isolated domain is required; no unsafe authorization workaround is offered.

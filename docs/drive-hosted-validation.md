@@ -10,9 +10,10 @@ Managed-workspace results:
 | --- | --- |
 | Prettier, ESLint | Passed |
 | Strict app and diagnostic TypeScript | Passed through all builds |
-| Unit tests | 68 passed, 1 existing expected failure |
+| Unit tests | 106 passed, 1 existing expected failure |
 | Hosted mocked-HTTPS browser tests | 3 passed |
 | Preserved localhost diagnostic browser tests | 4 passed |
+| Codespaces proxy regression tests | 3 passed (simulated authenticated proxy; real Vite/module worker/HMR) |
 | Production application browser tests | 7 passed |
 | Localhost, isolated hosted and production builds | Passed |
 | Hosted asset isolation / production bundle and SW isolation | Passed |
@@ -40,3 +41,11 @@ See [browser-only setup and fallback](drive-hosted-test-guide.md) and the
 [full permission test matrix](drive-oauth-test-guide.md). CI results on the PR are
 separate from the local emulator limitation; a green mocked browser test is not a
 Google authorization result.
+
+## Codespaces proxy regression
+
+See [reproduction, exact rejected conditions and recovery](drive-codespace-proxy-fix.md).
+38 new unit cases cover valid proxy formats and malicious host/origin combinations.
+Three integration/browser tests cover the real Vite HTTP graph, HTTPS browser worker,
+valid and malicious HMR upgrade and refusal of CLI listener/port overrides. No live
+Codespaces authentication cookie or actual Google authorization was used.

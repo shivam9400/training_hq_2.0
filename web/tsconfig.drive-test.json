@@ -9,7 +9,9 @@
     "vite.drive-codespace.config.ts",
     "playwright.drive-hosted.config.ts",
     "drive-hosted-e2e",
-    "scripts/check-drive-hosted-target.ts"
+    "scripts/check-drive-hosted-target.ts",
+    "playwright.drive-codespace.config.ts",
+    "drive-codespace-e2e"
   ],
   "compilerOptions": {
     "allowImportingTsExtensions": true
