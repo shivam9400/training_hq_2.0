@@ -39,11 +39,15 @@ jobs:
       - run: npm run format:check
       - run: npm run lint
       - run: npm test
+      - name: Type-check and build localhost diagnostic separately
+        run: npm run build:drive-test
       - run: npm run test:rules
       - name: Build synthetic demo for browser tests
         run: npm run build
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
+      - name: Test local diagnostic using mocked Google services only
+        run: npm run test:drive-browser
       - name: Build deployable frontend
         env:
           VITE_FIREBASE_API_KEY: ${{ vars.VITE_FIREBASE_API_KEY }}

@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.json",
+  "include": [
+    "drive-diagnostic",
+    "vite.drive-test.config.ts",
+    "playwright.drive-test.config.ts",
+    "drive-diagnostic-e2e"
+  ]
+}

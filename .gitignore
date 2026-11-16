@@ -31,3 +31,7 @@ test-results/
 *.tsbuildinfo
 .idea/
 .DS_Store
+
+# Local-only diagnostic output and owner-created synthetic fixtures
+drive-diagnostic-dist/
+drive-test-fixtures/

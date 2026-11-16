@@ -62,6 +62,16 @@ is required for the new settings path; existing training loading is independent.
 Account deletion fails closed until configuration cleanup is permitted. No OAuth
 client, production permission, live access or deployment is configured by this PR.
 
+## Local Drive OAuth test tool
+
+An isolated **development-only** diagnostic is available with
+`cd web && npm run dev:drive-test` at **http://localhost:5173**. Read the
+[owner test guide](docs/drive-oauth-test-guide.md) before connecting. It uses the
+replacement Web Client ID from ignored web/.env.local, only drive.file, explicit
+synthetic-data actions and no Firebase. Real account/grant tests have not been run.
+The diagnostic is excluded from the production app, bundle and service worker;
+production Drive sync remains gated. No client secret or deployment is needed.
+
 ## Local development
 
 Use Node 24 (or a compatible version >=22.12). Java 21 is needed **only** for the
