@@ -158,3 +158,12 @@ verified before live implementation. If that cannot be met securely without paid
 requirements, retain local uploads/explicit file selection and document the limit.
 No backend billing is technically needed for foreground downloads, but that alone
 does not satisfy OAuth policy. Closed-browser sync remains unavailable.
+
+## Isolated hosted permission experiment
+
+The [hosted diagnostic](drive-hosted-test-guide.md) is a separate opt-in build and
+manual deployment to a different dedicated GitHub owner. Public client settings,
+tokens and results remain memory-only; no Firebase modules or production service
+worker are included. It does not enable production Drive sync or establish actual
+future-child authorization. Localhost remains supported. No live deployment or
+Google Cloud change is performed automatically.

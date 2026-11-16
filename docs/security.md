@@ -115,3 +115,12 @@ Unknown fields, tokens, identity claims and verified status are rejected. URL
 validation never implies Google access. No GIS/Picker/token/Drive request path is
 enabled; current policy and exact permission tests remain blocked/unrun as recorded
 in drive-feasibility-decision.md. Training data loading does not query this new path.
+
+## Isolated hosted permission experiment
+
+The [hosted diagnostic](drive-hosted-test-guide.md) is a separate opt-in build and
+manual deployment to a different dedicated GitHub owner. Public client settings,
+tokens and results remain memory-only; no Firebase modules or production service
+worker are included. It does not enable production Drive sync or establish actual
+future-child authorization. Localhost remains supported. No live deployment or
+Google Cloud change is performed automatically.

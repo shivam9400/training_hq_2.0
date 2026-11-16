@@ -7,6 +7,7 @@ export default ts.config(
     ignores: [
       "dist/**",
       "drive-diagnostic-dist/**",
+      "drive-hosted-dist/**",
       "node_modules/**",
       "playwright-report/**",
       "test-results/**",

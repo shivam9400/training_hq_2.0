@@ -4,6 +4,16 @@
     "drive-diagnostic",
     "vite.drive-test.config.ts",
     "playwright.drive-test.config.ts",
-    "drive-diagnostic-e2e"
-  ]
+    "drive-diagnostic-e2e",
+    "vite.drive-hosted.config.ts",
+    "vite.drive-codespace.config.ts",
+    "playwright.drive-hosted.config.ts",
+    "drive-hosted-e2e",
+    "scripts/check-drive-hosted-target.ts",
+    "playwright.drive-codespace.config.ts",
+    "drive-codespace-e2e"
+  ],
+  "compilerOptions": {
+    "allowImportingTsExtensions": true
+  }
 }

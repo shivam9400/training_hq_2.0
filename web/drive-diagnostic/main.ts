@@ -1,16 +1,15 @@
 import {
   DriveSession,
   DiagnosticError,
-  ORIGIN,
   MARKER,
   discovery,
   folderFromUrl,
   id,
-  localhostOnly,
   safeFailure,
   type Result,
   type Scan,
 } from "./core";
+import { assertRuntime, publicSettings, type RuntimeMode } from "./runtime";
 import {
   authorize,
   PickerBridge,
@@ -27,25 +26,40 @@ import {
 import { consolidate } from "../src/services/activities/preview";
 import type { InputFile, ParsedFiles } from "../src/services/activities/model";
 declare const __DRIVE_TEST_CONFIG__: {
+  mode: RuntimeMode;
+  siteUrl: string;
   clientId: string;
   pickerKey: string;
   appId: string;
 };
 const app = document.querySelector<HTMLDivElement>("#app")!;
 try {
-  localhostOnly(location.origin, import.meta.env.DEV);
+  assertRuntime(
+    __DRIVE_TEST_CONFIG__.mode,
+    __DRIVE_TEST_CONFIG__.siteUrl,
+    location.href,
+    import.meta.env.DEV,
+    window.top !== window.self,
+  );
   if (navigator.serviceWorker?.controller)
     throw new Error("Existing service worker");
 } catch {
   app.textContent =
-    "Diagnostic disabled outside localhost development or under an existing service worker. Use a clean browser profile at http://localhost:5173.";
-  throw new Error("Local diagnostic origin required.");
+    "Diagnostic blocked: wrong origin/path, framing or an existing service worker. Open the exact approved test URL in a clean browser profile.";
+  throw new Error("Diagnostic runtime boundary refused.");
 }
 const field = (key: string, label: string, type = "text") =>
   `<label>${label}<input id="${key}" type="${type}" autocomplete="off" spellcheck="false" maxlength="${type === "url" ? 2048 : 128}"></label>`;
 const button = (key: string, label: string, source = true) =>
   `<button id="${key}" ${source ? "data-source" : ""}>${label}</button>`;
-app.innerHTML = `<h1>Training HQ local Drive OAuth diagnostic</h1><p class="banner">Synthetic test data only. No Firebase, uploads or production sync. Scope: drive.file. Drive requests are GET only. Folder metadata success is not child-file permission proof.</p><p>${MARKER} · ${ORIGIN} · no service worker</p>
+const hosted = __DRIVE_TEST_CONFIG__.mode !== "local";
+let credentials = {
+  clientId: __DRIVE_TEST_CONFIG__.clientId,
+  pickerKey: __DRIVE_TEST_CONFIG__.pickerKey,
+  appId: __DRIVE_TEST_CONFIG__.appId,
+};
+app.innerHTML = `<h1>Training HQ Drive OAuth diagnostic</h1><p class="banner">Synthetic test data only. No Firebase, uploads or production sync. Scope: drive.file. Drive requests are GET only. Folder metadata success is not child-file permission proof.</p><p>${hosted ? "HOSTED_DRIVE_DIAGNOSTIC" : MARKER} · ${location.origin} · no service worker</p>
+${hosted ? `<section><h2>Temporary browser-only test settings</h2><p>Public test identifiers stay in this tab's memory. Use the replacement test client. Never enter a Client Secret, refresh token or service-account credential. Nothing is saved or included in this site's build.</p>${field("test-client", "Replacement test OAuth Web Client ID")}${field("test-key", "Public Picker browser API key (not a Client Secret)", "password")}${field("test-app", "Numeric test project number")}${button("apply-settings", "Apply test settings in memory", false)}<p id="settings-state">Test settings missing; Google controls remain disabled.</p></section>` : ""}
 <section><h2>1. Explicit account authorization</h2>${button("prepare", "Load Google Identity test SDK (no authorization)", false)}${button("connect", "Connect Test Google Account", false)}${button("disconnect", "Disconnect locally / clear all", false)}<button id="probe" data-connected>Probe current Drive identity</button><button id="expire" data-connected>Simulate local expiry (not revocation)</button><p id="identity">Drive identity not verified.</p><p id="expiry"></p><label>Manual Firebase matrix context — not verified authentication<select id="case"><option value="none">Choose case</option><option value="same">Firebase A in separate app window + expected Drive A</option><option value="different">Firebase A in separate app window + expected Drive B</option></select></label><p>This diagnostic never reads/signs into Firebase. Verify Firebase A separately in the normal app. Only the Drive account is verified here using authenticated about.get; the case label is not identity evidence.</p></section>
 <section><h2>2. Folder and existing-file experiment</h2><label><input id="synthetic" type="checkbox"> I confirm this folder and all selected/downloaded files are owner-created synthetic samples, not private Health Sync records.</label>${field("folder", "Private synthetic folder URL", "url")}${button("choose-folder", "Select synthetic folder through Picker")}${button("metadata", "Test folder metadata only")}<p>Picker uses the same grant. A folder selection only fills the URL; no metadata/listing/download runs automatically.</p>${field("existing-direct", "Known existing direct file ID")}${field("existing-nested", "Known existing nested file ID")}${button("baseline", "Scan existing nested files — establish baseline")}<p id="scan-summary">No listing performed.</p></section>
 <section><h2>3. Future-file experiment with the same issued grant</h2><p>After baseline, use another account or external app to upload a NEW synthetic file, then a NEW subfolder with a NEW file. Do not select those files individually in Picker before this experiment. Reconnection does not erase prior Google grants; use fresh, never-selected samples.</p>${field("new-direct", "Known NEW direct file ID")}${field("new-folder", "Known NEW subfolder ID")}${field("new-nested", "Known NEW nested file ID")}${button("future", "Rescan with the previously issued grant")}<p id="contamination"></p></section>
@@ -106,8 +120,15 @@ const session = new DriveSession(add, (status) =>
 );
 function update() {
   el<HTMLButtonElement>("connect").disabled =
-    busy || !__DRIVE_TEST_CONFIG__.clientId || !identityReady() || unsafeWorker;
-  el<HTMLButtonElement>("prepare").disabled = busy || unsafeWorker;
+    busy || !credentials.clientId || !identityReady() || unsafeWorker;
+  el<HTMLButtonElement>("prepare").disabled =
+    busy || unsafeWorker || (hosted && !credentials.clientId);
+  if (hosted) {
+    el<HTMLButtonElement>("apply-settings").disabled = busy;
+    el("settings-state").textContent = credentials.clientId
+      ? "Test settings loaded in memory only; values are not shown or persisted."
+      : "Test settings missing; Google controls remain disabled.";
+  }
   document
     .querySelectorAll<HTMLButtonElement>("[data-connected]")
     .forEach((b) => (b.disabled = busy || !session.connected));
@@ -296,7 +317,7 @@ el("connect").onclick = () =>
     resetFields();
     rows = [];
     results();
-    const response = await authorize(__DRIVE_TEST_CONFIG__.clientId);
+    const response = await authorize(credentials.clientId);
     if (current !== epoch || signal.aborted) return;
     session.adopt(response);
     add({
@@ -313,7 +334,13 @@ el("connect").onclick = () =>
       throw error;
     }
   });
-el("disconnect").onclick = () => disconnect();
+el("disconnect").onclick = () => {
+  disconnect();
+  if (hosted) {
+    credentials = { clientId: "", pickerKey: "", appId: "" };
+    update();
+  }
+};
 el("expire").onclick = () => {
   disconnect(
     "Local expiry simulated, not an actual Google revocation/expiry outcome.",
@@ -356,8 +383,8 @@ el("choose-folder").onclick = () =>
     await picker.open(
       "folder",
       session.tokenForPicker(),
-      __DRIVE_TEST_CONFIG__.pickerKey,
-      __DRIVE_TEST_CONFIG__.appId,
+      credentials.pickerKey,
+      credentials.appId,
       () =>
         current === epoch && session.generation === grant && session.connected,
       (ids) => {
@@ -482,8 +509,8 @@ el("choose-files").onclick = () =>
     await picker.open(
       "files",
       session.tokenForPicker(),
-      __DRIVE_TEST_CONFIG__.pickerKey,
-      __DRIVE_TEST_CONFIG__.appId,
+      credentials.pickerKey,
+      credentials.appId,
       () =>
         current === epoch && session.generation === grant && session.connected,
       (ids) => {
@@ -634,12 +661,32 @@ for (const [name, make] of [
   b.onclick = () => saveFixture(`training-hq-test-${name}`, make());
   el("fixtures").append(b);
 }
+if (hosted)
+  el("apply-settings").onclick = () => {
+    try {
+      const next = publicSettings({
+        clientId: input("test-client").value,
+        pickerKey: input("test-key").value,
+        appId: input("test-app").value,
+      });
+      disconnect();
+      credentials = next;
+      update();
+      notice(
+        "Public test settings loaded only in memory. Load the Google SDK, then connect explicitly.",
+      );
+    } catch {
+      notice(
+        "Invalid public test settings. Use the replacement Web Client ID, browser API key and numeric project number; never a Client Secret.",
+      );
+    }
+  };
 window.addEventListener("pagehide", () =>
   disconnect("Page closed; local memory cleared."),
 );
-if (!__DRIVE_TEST_CONFIG__.clientId)
+if (!credentials.clientId)
   notice(
-    "Replacement Web Client ID missing. Add VITE_GOOGLE_DRIVE_TEST_CLIENT_ID to ignored web/.env.local and restart. Fixture generation works without Google authorization.",
+    "Replacement Web Client ID missing. Hosted/Codespace users enter the public test settings above; localhost users configure ignored web/.env.local. Fixture generation requires no Google authorization.",
   );
 results();
 update();

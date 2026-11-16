@@ -1,5 +1,9 @@
 # Local Google Drive OAuth diagnostic
 
+For a browser-only temporary site without local cloning, see the separate
+[hosted diagnostic guide](drive-hosted-test-guide.md). Local instructions below
+remain supported; production sync stays gated.
+
 This is an **owner-operated synthetic permission experiment**, not production
 Drive sync. It makes actual GIS/Picker/Drive calls only when you press the relevant
 buttons. No real Google authorization tests were performed while implementing it.

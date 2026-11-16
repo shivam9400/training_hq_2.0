@@ -290,6 +290,8 @@ test("normal app dev server refuses diagnostic source and built diagnostic paths
     "/drive-diagnostic/main.ts",
     "/@fs/any/path/drive-diagnostic/main.ts",
     "/drive-diagnostic-dist/index.html",
+    "/drive-hosted-dist/index.html",
+    "/drive-hosted-e2e/hosted.spec.ts",
   ])
     expect((await request.get(`http://localhost:5174${path}`)).status()).toBe(
       404,
