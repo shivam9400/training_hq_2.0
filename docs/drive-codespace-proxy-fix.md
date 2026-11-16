@@ -1,5 +1,10 @@
 # Codespaces diagnostic proxy fix
 
+**Latest live finding:** the response says `X-Training-HQ-Boundary: origin`.
+That is a different gate from the earlier host reproduction below. See
+[the origin investigation and safe reason-code table](#confirmed-live-origin-rejection-second-investigation).
+The precise live Origin/Fetch Metadata remains unavailable; no value is guessed.
+
 The original middleware used:
 
 ```ts
@@ -74,3 +79,55 @@ port to Public. If the problem persists, inspect only the failing request's HTTP
 status and fixed boundary reason in DevTools; do not publish cookies, bearer tokens,
 private headers or a HAR. A missing boundary marker may mean Vite or GitHub rejected
 it before this guard. Actual GitHub authentication behavior requires a live session.
+
+## Confirmed live `origin` rejection: second investigation
+
+A live `X-Training-HQ-Boundary: origin` confirms that the previous **host** fix
+was not sufficient. It does **not** reveal the received Origin value: the original
+code used the same result for an explicit Origin mismatch, missing-Origin cross-site
+subresources and a missing-Origin WebSocket upgrade. In particular, the old code
+already accepted missing-Origin requests labelled same-origin. We have not captured
+the live request headers and do not claim the live value is localhost, null or any
+other guessed value.
+
+The decision now uses the HTTP method, target, Origin and Fetch Metadata together:
+
+- GET/HEAD modules, stylesheet, imports and worker requests can omit Origin when
+  Sec-Fetch-Site is **same-origin**, mode is cors/same-origin/no-cors and destination
+  is an allowed static resource. Regression tests exercise `/main.ts`, `/@vite/client`,
+  `/core.ts`, `/style.css`, `/` and the actual parser worker.
+- Explicit Origin must still be the exact approved HTTPS origin. `null`, backend
+  localhost, another HTTPS host, credentials, paths and malformed values fail even
+  if Sec-Fetch-Site says same-origin. X-Forwarded-Origin has no authority.
+- Same-site is not same-origin. Cross-site/same-site subresources are refused;
+  top-level read-only root document navigation is allowed so GitHub sign-in can
+  start. Navigation metadata cannot expose module paths across origins.
+- Without Origin or any Fetch Metadata, only a loopback root readiness probe is
+  allowed. Incomplete/invalid Fetch Metadata is rejected, not interpreted as proof
+  of a same-origin browser. Unsafe methods are rejected.
+- WebSocket upgrades always require an approved explicit Origin, including when
+  Fetch Metadata says same-origin. No missing-Origin HTTP exception applies to HMR.
+
+### Safe next diagnostic, without sharing headers
+
+Only this development server adds a second **fixed enum**, on denied HTTP requests:
+`X-Training-HQ-Origin-Reason`. No header values, URLs, cookies, tokens or identifiers
+are logged or returned. Inspect this enum on the failing `/main.ts` response:
+
+| Reason | Meaning / next step |
+| --- | --- |
+| origin-null | Explicit opaque `null` Origin; use a top-level tab, not a sandboxed preview. |
+| origin-backend | Origin identifies a loopback backend on port 5173; it is deliberately not accepted as the browser's HTTPS identity. |
+| origin-other-https | Explicit HTTPS Origin differs from the computed Codespaces origin; check that the running server and opened Codespace correspond. No actual hostname is exposed. |
+| origin-other-scheme / origin-malformed | Unsupported scheme or a non-origin value; no bypass is applied. |
+| fetch-cross-site / fetch-same-site | Subresource is not classified as same-origin; complete private-port sign-in by navigating to the root, then reload the exact site. |
+| fetch-site-not-same-origin | Subresource site classification is neither same-origin nor a permitted root navigation. |
+| fetch-metadata-missing / fetch-metadata-incomplete / fetch-metadata-invalid | Missing/partial/contradictory browser evidence; no raw metadata is exposed. |
+| unsafe-method | Only GET/HEAD static reads are supported. |
+
+The WebSocket-specific internal classification `websocket-origin-missing` is covered
+by regression tests; rejected upgrades close with 403. These classes identify the
+remaining gate, not a successful authorization or permission grant. If the live
+page still fails, report **only the enum**, not a HAR or raw headers. Private-port
+visibility, host/forwarded-header checks, CSP, Firebase isolation and drive.file-only
+OAuth remain unchanged. No production setting or deployment was touched.

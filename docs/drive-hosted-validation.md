@@ -10,10 +10,10 @@ Managed-workspace results:
 | --- | --- |
 | Prettier, ESLint | Passed |
 | Strict app and diagnostic TypeScript | Passed through all builds |
-| Unit tests | 106 passed, 1 existing expected failure |
+| Unit tests | 129 passed, 1 existing expected failure |
 | Hosted mocked-HTTPS browser tests | 3 passed |
 | Preserved localhost diagnostic browser tests | 4 passed |
-| Codespaces proxy regression tests | 3 passed (simulated authenticated proxy; real Vite/module worker/HMR) |
+| Codespaces proxy regression tests | 5 passed (simulated authenticated proxy; real Vite/module worker/HMR) |
 | Production application browser tests | 7 passed |
 | Localhost, isolated hosted and production builds | Passed |
 | Hosted asset isolation / production bundle and SW isolation | Passed |
@@ -46,6 +46,17 @@ Google authorization result.
 
 See [reproduction, exact rejected conditions and recovery](drive-codespace-proxy-fix.md).
 38 new unit cases cover valid proxy formats and malicious host/origin combinations.
-Three integration/browser tests cover the real Vite HTTP graph, HTTPS browser worker,
+Five integration/browser tests cover the real Vite HTTP graph, HTTPS browser worker,
 valid and malicious HMR upgrade and refusal of CLI listener/port overrides. No live
 Codespaces authentication cookie or actual Google authorization was used.
+
+The second origin investigation adds 23 unit cases and two browser/integration
+cases, including a full HTTPS browser/module/worker pass with Origin omitted.
+Fixed `X-Training-HQ-Origin-Reason` enums distinguish the previously conflated
+rejections. The actual failing live Origin/Fetch Metadata is still unavailable;
+these tests do not identify its value or claim the live sign-in/OAuth flow passed.
+
+Browser interception supplies explicit synthetic Fetch Metadata fixtures because
+Playwright does not expose the on-wire browser metadata there. Actual Vite HTTP
+requests independently test valid/malicious header combinations. Neither is a
+capture or proof of the live Codespaces proxy header values.

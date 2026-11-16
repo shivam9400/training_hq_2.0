@@ -13,12 +13,17 @@ const proxyHeaders = {
   "X-Forwarded-Proto": "https",
   "X-Forwarded-Port": "443",
 };
-function handshake(token: string, allowed: boolean): Promise<number> {
+function handshake(
+  token: string,
+  allowed: boolean | "missing",
+): Promise<number> {
   return new Promise((resolve, reject) => {
     const req = httpRequest(`${backend}/?token=${encodeURIComponent(token)}`, {
       headers: {
         ...proxyHeaders,
-        Origin: allowed ? origin : "https://evil.example",
+        ...(allowed === "missing"
+          ? {}
+          : { Origin: allowed ? origin : "https://evil.example" }),
         Connection: "Upgrade",
         Upgrade: "websocket",
         "Sec-WebSocket-Version": "13",
@@ -71,6 +76,7 @@ test("actual Vite serves the full module graph through valid proxy headers and r
   expect(Boolean(token)).toBe(true);
   expect(await handshake(token!, true)).toBe(101);
   expect(await handshake(token!, false)).toBe(403);
+  expect(await handshake(token!, "missing")).toBe(403);
   for (const headers of [
     { ...proxyHeaders, Host: "evil.example", Origin: origin },
     {
@@ -89,112 +95,149 @@ test("actual Vite serves the full module graph through valid proxy headers and r
     ).toBe(true);
   }
 });
-test("HTTPS proxy browser loads scripts, imports and the actual parser worker with CSP and no Firebase/Google contact", async ({
-  page,
-}) => {
-  const statuses: { path: string; status: number }[] = [];
-  const unexpected: string[] = [];
-  const errors: string[] = [];
-  page.on("pageerror", (error) => errors.push(error.message));
-  await page.route("**/*", async (route) => {
-    const req = route.request(),
-      url = new URL(req.url());
-    if (url.origin !== origin) {
-      unexpected.push(url.origin);
-      await route.abort();
-      return;
-    }
-    // Models an authenticated forwarding service. No real GitHub cookie, token,
-    // private Codespace or Google request is involved in this regression test.
-    const headers: Record<string, string> = {
-      ...req.headers(),
-      ...proxyHeaders,
-    };
-    delete headers.host;
-    const response = await route.fetch({
-      url: `${backend}${url.pathname}${url.search}`,
-      headers,
+for (const omitOrigin of [false, true])
+  test(`HTTPS proxy browser loads scripts/imports/worker without Firebase or Google; omit Origin=${omitOrigin}`, async ({
+    page,
+    context,
+  }) => {
+    const statuses: { path: string; status: number }[] = [];
+    const unexpected: string[] = [];
+    const errors: string[] = [];
+    let hmrReady = false;
+    page.on("console", (message) => {
+      if (message.text() === "[vite] connected.") hmrReady = true;
     });
-    statuses.push({ path: url.pathname, status: response.status() });
-    await route.fulfill({ response });
-  });
-  // The HTTP/HMR integration test above exercises the real upgrade/token guard.
-  // Keep the browser from contacting GitHub's actual private authentication proxy.
-  await page.routeWebSocket(
-    (url) => url.protocol === "wss:" && url.hostname === host && !url.port,
-    (socket) => {
-      socket.send(JSON.stringify({ type: "connected" }));
-    },
-  );
-  await page.goto(origin + "/");
-  await expect(
-    page.getByRole("heading", { name: "Training HQ Drive OAuth diagnostic" }),
-  ).toBeVisible();
-  await expect(page.locator("#settings-state")).toContainText("missing");
-  await expect(page.locator("#connect")).toBeDisabled();
-  const workerPath = `/@fs${process.cwd()}/src/services/activities/worker.ts?worker_file&type=module`;
-  const result = await page.evaluate(
-    async ({ workerPath, csv }) => {
-      const worker = new Worker(workerPath, { type: "module" });
-      try {
-        return await new Promise<{ activities: number; rejected: number }>(
-          (resolve, reject) => {
-            const timer = setTimeout(() => {
-              worker.terminate();
-              reject(new Error("Worker timeout"));
-            }, 30000);
-            worker.onerror = () => {
-              clearTimeout(timer);
-              reject(new Error("Worker module load failed"));
-            };
-            worker.onmessage = (event) => {
-              if (event.data.kind === "result") {
-                clearTimeout(timer);
-                resolve({
-                  activities: event.data.result.activities.length,
-                  rejected: event.data.result.rejected,
-                });
-              }
-              if (event.data.kind === "error") {
-                clearTimeout(timer);
-                reject(new Error("Synthetic worker parse failed"));
-              }
-            };
-            const bytes = new TextEncoder().encode(csv);
-            worker.postMessage(
-              {
-                inputs: [{ name: "synthetic.csv", bytes }],
-                offset: "",
-                fallbackType: "Other",
-              },
-              [bytes.buffer],
-            );
-          },
-        );
-      } finally {
-        worker.terminate();
+    page.on("pageerror", (error) => errors.push(error.message));
+    await page.route("**/*", async (route) => {
+      const req = route.request(),
+        url = new URL(req.url());
+      if (url.origin !== origin) {
+        unexpected.push(url.origin);
+        await route.abort();
+        return;
       }
-    },
-    { workerPath, csv: syntheticCsv() },
-  );
-  expect(result).toEqual({ activities: 1, rejected: 0 });
-  for (const path of ["/", "/@vite/client", "/main.ts", "/core.ts"])
+      // Models an authenticated forwarding service. No real GitHub cookie, token,
+      // private Codespace or Google request is involved in this regression test.
+      const headers: Record<string, string> = {
+        ...(await req.allHeaders()),
+        ...proxyHeaders,
+      };
+      // Playwright's interception does not include Chromium's on-wire Fetch
+      // Metadata. Supply an explicit SAME-ORIGIN fixture, not a claim that we
+      // captured live Codespaces/browser headers. Raw negative tests below send
+      // cross-site/malformed values directly to the actual Vite guard.
+      const resource = req.resourceType();
+      const workerEntry = url.searchParams.has("worker_file");
+      Object.assign(headers, {
+        "sec-fetch-site": resource === "document" ? "none" : "same-origin",
+        "sec-fetch-mode":
+          resource === "document"
+            ? "navigate"
+            : workerEntry
+              ? "same-origin"
+              : resource === "stylesheet"
+                ? "no-cors"
+                : "cors",
+        "sec-fetch-dest":
+          resource === "document"
+            ? "document"
+            : workerEntry
+              ? "worker"
+              : resource === "stylesheet"
+                ? "style"
+                : "script",
+      });
+      delete headers.host;
+      if (omitOrigin) delete headers.origin;
+      const response = await route.fetch({
+        url: `${backend}${url.pathname}${url.search}`,
+        headers,
+      });
+      expect(
+        response.status(),
+        `${url.pathname}: ${response.headers()["x-training-hq-origin-reason"] ?? "no boundary reason"}`,
+      ).toBe(200);
+      statuses.push({ path: url.pathname, status: response.status() });
+      await route.fulfill({ response });
+    });
+    // The HTTP/HMR integration test above exercises the real upgrade/token guard.
+    // Keep the browser from contacting GitHub's actual private authentication proxy.
+    await context.routeWebSocket(
+      (url) => url.protocol === "wss:" && url.hostname === host && !url.port,
+      (socket) => {
+        socket.send(JSON.stringify({ type: "connected" }));
+      },
+    );
+    await page.goto(origin + "/");
+    await expect.poll(() => hmrReady).toBe(true);
+    await expect(
+      page.getByRole("heading", { name: "Training HQ Drive OAuth diagnostic" }),
+    ).toBeVisible();
+    await expect(page.locator("#settings-state")).toContainText("missing");
+    await expect(page.locator("#connect")).toBeDisabled();
+    const workerPath = `/@fs${process.cwd()}/src/services/activities/worker.ts?worker_file&type=module`;
+    const result = await page.evaluate(
+      async ({ workerPath, csv }) => {
+        const worker = new Worker(workerPath, { type: "module" });
+        try {
+          return await new Promise<{ activities: number; rejected: number }>(
+            (resolve, reject) => {
+              const timer = setTimeout(() => {
+                worker.terminate();
+                reject(new Error("Worker timeout"));
+              }, 30000);
+              worker.onerror = () => {
+                clearTimeout(timer);
+                reject(new Error("Worker module load failed"));
+              };
+              worker.onmessage = (event) => {
+                if (event.data.kind === "result") {
+                  clearTimeout(timer);
+                  resolve({
+                    activities: event.data.result.activities.length,
+                    rejected: event.data.result.rejected,
+                  });
+                }
+                if (event.data.kind === "error") {
+                  clearTimeout(timer);
+                  reject(new Error("Synthetic worker parse failed"));
+                }
+              };
+              const bytes = new TextEncoder().encode(csv);
+              worker.postMessage(
+                {
+                  inputs: [{ name: "synthetic.csv", bytes }],
+                  offset: "",
+                  fallbackType: "Other",
+                },
+                [bytes.buffer],
+              );
+            },
+          );
+        } finally {
+          worker.terminate();
+        }
+      },
+      { workerPath, csv: syntheticCsv() },
+    );
+    expect(result).toEqual({ activities: 1, rejected: 0 });
+    for (const path of ["/", "/@vite/client", "/main.ts", "/core.ts"])
+      expect(
+        statuses.some((r) => r.path === path && r.status === 200),
+        path,
+      ).toBe(true);
+    expect(statuses.every((r) => r.status === 200 || r.status === 304)).toBe(
+      true,
+    );
+    expect(unexpected).toEqual([]);
+    expect(errors).toEqual([]);
     expect(
-      statuses.some((r) => r.path === path && r.status === 200),
-      path,
-    ).toBe(true);
-  expect(statuses.every((r) => r.status === 200 || r.status === 304)).toBe(
-    true,
-  );
-  expect(unexpected).toEqual([]);
-  expect(errors).toEqual([]);
-  expect(
-    await page.evaluate(() => ({
-      storage: localStorage.length + sessionStorage.length,
-      worker: !!navigator.serviceWorker.controller,
-    })),
-  ).toEqual({ storage: 0, worker: false });
-});
+      await page.evaluate(() => ({
+        storage: localStorage.length + sessionStorage.length,
+        worker: !!navigator.serviceWorker.controller,
+      })),
+    ).toEqual({ storage: 0, worker: false });
+  });
 
 test("CLI cannot expose the listener or change the fixed port", async () => {
   for (const args of [
@@ -228,5 +271,60 @@ test("CLI cannot expose the listener or change the fixed port", async () => {
       );
     }
     expect(failed).toBe(true);
+  }
+});
+
+test("module GETs without Origin use same-origin Fetch Metadata and failures expose only fixed reason codes", async ({
+  request,
+}) => {
+  for (const path of [
+    "/main.ts",
+    "/@vite/client",
+    "/core.ts",
+    "/style.css",
+    "/",
+  ]) {
+    const headers = {
+      ...proxyHeaders,
+      "Sec-Fetch-Site": "same-origin",
+      "Sec-Fetch-Mode":
+        path === "/" ? "navigate" : path === "/style.css" ? "no-cors" : "cors",
+      "Sec-Fetch-Dest":
+        path === "/" ? "document" : path === "/style.css" ? "style" : "script",
+    };
+    expect(
+      (await request.get(backend + path, { headers })).status(),
+      path,
+    ).toBe(200);
+    if (path !== "/") {
+      const response = await request.get(backend + path, {
+        headers: { ...headers, "Sec-Fetch-Site": "cross-site" },
+      });
+      expect(response.status()).toBe(403);
+      expect(response.headers()["x-training-hq-boundary"]).toBe("origin");
+      expect(response.headers()["x-training-hq-origin-reason"]).toBe(
+        "fetch-cross-site",
+      );
+    }
+  }
+  for (const [value, reason] of [
+    ["null", "origin-null"],
+    ["http://localhost:5173", "origin-backend"],
+    ["https://synthetic-private.example", "origin-other-https"],
+    [`${origin}/path`, "origin-malformed"],
+  ]) {
+    const response = await request.get(`${backend}/main.ts`, {
+      headers: {
+        ...proxyHeaders,
+        Origin: value,
+        "Sec-Fetch-Site": "same-origin",
+        "Sec-Fetch-Mode": "cors",
+        "Sec-Fetch-Dest": "script",
+        "X-Forwarded-Origin": origin,
+      },
+    });
+    expect(response.status()).toBe(403);
+    expect(response.headers()["x-training-hq-origin-reason"]).toBe(reason);
+    expect(await response.text()).not.toContain(value);
   }
 });

@@ -5,6 +5,8 @@ export type CodespaceRequest = {
   headers: Headers;
   rawHeaders?: readonly string[];
   remoteAddress?: string;
+  method?: string;
+  url?: string;
 };
 export type BoundaryFailure =
   | "peer"
@@ -22,6 +24,9 @@ const checked = new Set([
   "x-forwarded-host",
   "x-forwarded-proto",
   "x-forwarded-port",
+  "sec-fetch-site",
+  "sec-fetch-mode",
+  "sec-fetch-dest",
 ]);
 export function codespaceRequestFailure(
   request: CodespaceRequest,
@@ -85,22 +90,107 @@ export function codespaceRequestFailure(
     if (!external(parts.get("host")) || parts.get("proto") !== "https")
       return "forwarded";
   }
+  return codespaceOriginReason(request, origin, upgrade) ? "origin" : null;
+}
+
+// Fixed enums only: never return the received origin, hostname, path or tokens.
+export type OriginReason =
+  | "origin-null"
+  | "origin-backend"
+  | "origin-other-https"
+  | "origin-other-scheme"
+  | "origin-malformed"
+  | "websocket-origin-missing"
+  | "fetch-cross-site"
+  | "fetch-same-site"
+  | "fetch-site-not-same-origin"
+  | "fetch-metadata-incomplete"
+  | "fetch-metadata-invalid"
+  | "fetch-metadata-missing"
+  | "unsafe-method";
+export function codespaceOriginReason(
+  request: CodespaceRequest,
+  origin: string,
+  upgrade = false,
+): OriginReason | null {
+  const { headers } = request;
+  if (!["GET", "HEAD"].includes(request.method ?? "GET"))
+    return "unsafe-method";
   const value = headers.origin;
   if (value !== undefined) {
-    if (
-      typeof value !== "string" ||
-      !value.startsWith("https://") ||
-      !external(value.slice(8))
-    )
-      return "origin";
-  } else if (
-    upgrade ||
-    (headers["sec-fetch-site"] === "cross-site" &&
-      !(
-        headers["sec-fetch-mode"] === "navigate" &&
-        headers["sec-fetch-dest"] === "document"
-      ))
+    if (value === "null") return "origin-null";
+    if (typeof value !== "string" || !/^https?:\/\/[^/?#\s]+$/i.test(value))
+      return "origin-malformed";
+    let parsed: URL;
+    try {
+      parsed = new URL(value);
+    } catch {
+      return "origin-malformed";
+    }
+    if (parsed.username || parsed.password) return "origin-malformed";
+    if (parsed.origin !== origin) {
+      if (
+        ["localhost", "127.0.0.1", "[::1]"].includes(parsed.hostname) &&
+        parsed.port === "5173"
+      )
+        return "origin-backend";
+      return parsed.protocol === "https:"
+        ? "origin-other-https"
+        : "origin-other-scheme";
+    }
+  } else if (upgrade) return "websocket-origin-missing";
+
+  const site = headers["sec-fetch-site"],
+    mode = headers["sec-fetch-mode"],
+    dest = headers["sec-fetch-dest"];
+  const metadata = [site, mode, dest];
+  if (metadata.every((part) => part === undefined)) {
+    if (value !== undefined) return null; // Exact Origin from a non-browser client.
+    // Only a loopback root readiness probe may lack both Origin and Fetch Metadata.
+    const root = ["/", "/index.html"].includes(request.url ?? "/");
+    return root &&
+      ["localhost:5173", "127.0.0.1:5173", "[::1]:5173"].includes(
+        String(headers.host),
+      )
+      ? null
+      : "fetch-metadata-missing";
+  }
+  if (metadata.some((part) => part === undefined))
+    return "fetch-metadata-incomplete";
+  if (metadata.some((part) => typeof part !== "string"))
+    return "fetch-metadata-invalid";
+  if (
+    !["same-origin", "same-site", "cross-site", "none"].includes(String(site))
   )
-    return "origin";
+    return "fetch-metadata-invalid";
+  // A user may arrive from github.com, a bookmark or the address bar. This
+  // exception serves only the root document, never cross-origin module bodies.
+  if (
+    !upgrade &&
+    mode === "navigate" &&
+    dest === "document" &&
+    ["/", "/index.html"].includes(request.url ?? "/")
+  )
+    return null;
+  if (site === "cross-site") return "fetch-cross-site";
+  if (site === "same-site") return "fetch-same-site";
+  if (site !== "same-origin") return "fetch-site-not-same-origin";
+  if (upgrade)
+    return mode === "websocket" && dest === "empty"
+      ? null
+      : "fetch-metadata-invalid";
+  if (
+    !["cors", "same-origin", "no-cors"].includes(String(mode)) ||
+    ![
+      "script",
+      "style",
+      "worker",
+      "sharedworker",
+      "empty",
+      "image",
+      "font",
+    ].includes(String(dest))
+  )
+    return "fetch-metadata-invalid";
   return null;
 }

@@ -1,5 +1,8 @@
 import { defineConfig, mergeConfig, type UserConfig } from "vite";
-import { codespaceRequestFailure } from "./drive-diagnostic/codespace-request.ts";
+import {
+  codespaceRequestFailure,
+  codespaceOriginReason,
+} from "./drive-diagnostic/codespace-request.ts";
 import localConfig from "./vite.drive-test.config.ts";
 import { codespaceSite, csp } from "./drive-diagnostic/runtime.ts";
 export default defineConfig(async (env) => {
@@ -71,6 +74,8 @@ export default defineConfig(async (env) => {
           ) =>
             codespaceRequestFailure(
               {
+                method: req.method,
+                url: req.url,
                 headers: req.headers,
                 rawHeaders: req.rawHeaders,
                 remoteAddress: req.socket.remoteAddress,
@@ -85,6 +90,19 @@ export default defineConfig(async (env) => {
                 "Content-Type": "text/plain",
                 "Cache-Control": "no-store",
                 "X-Training-HQ-Boundary": reason,
+                ...(reason === "origin"
+                  ? {
+                      "X-Training-HQ-Origin-Reason":
+                        codespaceOriginReason(
+                          {
+                            headers: req.headers,
+                            method: req.method,
+                            url: req.url,
+                          },
+                          origin,
+                        ) ?? "unclassified",
+                    }
+                  : {}),
               });
               res.end(`Codespace diagnostic request denied (${reason}).`);
               return;
