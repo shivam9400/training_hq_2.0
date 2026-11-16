@@ -2,6 +2,8 @@ import { defineConfig, mergeConfig, type UserConfig } from "vite";
 import {
   codespaceRequestFailure,
   codespaceOriginReason,
+  codespaceBackendOriginAllowed,
+  codespaceBackendOriginCheck,
 } from "./drive-diagnostic/codespace-request.ts";
 import localConfig from "./vite.drive-test.config.ts";
 import { codespaceSite, csp } from "./drive-diagnostic/runtime.ts";
@@ -68,37 +70,38 @@ export default defineConfig(async (env) => {
             );
         },
         configureServer(server) {
+          const boundaryRequest = (
+            req: import("node:http").IncomingMessage,
+          ) => ({
+            method: req.method,
+            url: req.url,
+            headers: req.headers,
+            rawHeaders: req.rawHeaders,
+            remoteAddress: req.socket.remoteAddress,
+          });
           const failure = (
             req: import("node:http").IncomingMessage,
             upgrade = false,
-          ) =>
-            codespaceRequestFailure(
-              {
-                method: req.method,
-                url: req.url,
-                headers: req.headers,
-                rawHeaders: req.rawHeaders,
-                remoteAddress: req.socket.remoteAddress,
-              },
-              origin,
-              upgrade,
-            );
+          ) => codespaceRequestFailure(boundaryRequest(req), origin, upgrade);
           server.middlewares.use((req, res, next) => {
             const reason = failure(req);
             if (reason) {
+              const originReason =
+                reason === "origin"
+                  ? codespaceOriginReason(boundaryRequest(req), origin)
+                  : null;
               res.writeHead(403, {
                 "Content-Type": "text/plain",
                 "Cache-Control": "no-store",
                 "X-Training-HQ-Boundary": reason,
-                ...(reason === "origin"
+                ...(originReason
+                  ? { "X-Training-HQ-Origin-Reason": originReason }
+                  : {}),
+                ...(originReason === "origin-backend"
                   ? {
-                      "X-Training-HQ-Origin-Reason":
-                        codespaceOriginReason(
-                          {
-                            headers: req.headers,
-                            method: req.method,
-                            url: req.url,
-                          },
+                      "X-Training-HQ-Proxy-Check":
+                        codespaceBackendOriginCheck(
+                          boundaryRequest(req),
                           origin,
                         ) ?? "unclassified",
                     }
@@ -107,6 +110,11 @@ export default defineConfig(async (env) => {
               res.end(`Codespace diagnostic request denied (${reason}).`);
               return;
             }
+            if (codespaceBackendOriginAllowed(boundaryRequest(req), origin))
+              res.setHeader(
+                "X-Training-HQ-Origin-Mode",
+                "proxy-backend-static",
+              );
             next();
           });
           // Upgrade requests bypass Connect middleware. Validate them before

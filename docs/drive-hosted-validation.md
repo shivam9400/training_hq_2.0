@@ -10,10 +10,10 @@ Managed-workspace results:
 | --- | --- |
 | Prettier, ESLint | Passed |
 | Strict app and diagnostic TypeScript | Passed through all builds |
-| Unit tests | 129 passed, 1 existing expected failure |
+| Unit tests | 176 passed, 1 existing expected failure |
 | Hosted mocked-HTTPS browser tests | 3 passed |
 | Preserved localhost diagnostic browser tests | 4 passed |
-| Codespaces proxy regression tests | 5 passed (simulated authenticated proxy; real Vite/module worker/HMR) |
+| Codespaces proxy regression tests | 7 passed (simulated authenticated proxy; real Vite/module worker/HMR) |
 | Production application browser tests | 7 passed |
 | Localhost, isolated hosted and production builds | Passed |
 | Hosted asset isolation / production bundle and SW isolation | Passed |
@@ -60,3 +60,29 @@ Browser interception supplies explicit synthetic Fetch Metadata fixtures because
 Playwright does not expose the on-wire browser metadata there. Actual Vite HTTP
 requests independently test valid/malicious header combinations. Neither is a
 capture or proof of the live Codespaces proxy header values.
+
+## Backend-Origin compatibility follow-up
+
+The owner confirmed the old live rejection was `origin-backend`. The new branch
+allows only read-only static resources with a validated loopback peer, matching
+backend/public authority, independent exact public forwarding host + HTTPS protocol,
+and same-origin Fetch Metadata. It does not extend to root documents, API/health
+files, arbitrary methods, unproven local Origins or WebSocket upgrades.
+
+47 additional unit cases cover accepted rewrites and missing/conflicting/forged
+proof. Two additional integration/browser cases simulate the rewrite and load the
+actual Vite module graph and parser worker; raw HTTP tests also check accepted CORS
+and fixed classification headers. There are now 7 Codespaces cases / 21 total
+browser/integration cases. Browser HMR is mocked; the actual Vite handshake and public, backend, missing and
+malicious-Origin upgrade outcomes are tested independently over HTTP. During the
+manual worker phase, at most one exact known mock event (`WebSocket closed without
+opened.`) is separately classified; no parser, module or other page error is
+ignored. This fixture allowance never enters application code or builds.
+
+TypeScript, formatting, lint and the localhost/hosted/production builds and isolation
+checks were run. Local Firestore emulator startup remains blocked by the distribution
+JAR download; no local rule assertions ran. CI runs that unchanged suite separately.
+No production/Firebase source or rules changed. No deployment or live Codespace
+verification was performed. The live result before this fix is not proof of the
+new behavior, and the exact tunnel rewrite component has not been traced.
+See [commands, trust model and verification limits](drive-codespace-proxy-fix.md).

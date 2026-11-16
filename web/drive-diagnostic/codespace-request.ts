@@ -28,10 +28,9 @@ const checked = new Set([
   "sec-fetch-mode",
   "sec-fetch-dest",
 ]);
-export function codespaceRequestFailure(
+function transportFailure(
   request: CodespaceRequest,
   origin: string,
-  upgrade = false,
 ): BoundaryFailure | null {
   const { headers, rawHeaders = [], remoteAddress } = request;
   if (!["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(remoteAddress ?? ""))
@@ -90,7 +89,104 @@ export function codespaceRequestFailure(
     if (!external(parts.get("host")) || parts.get("proto") !== "https")
       return "forwarded";
   }
-  return codespaceOriginReason(request, origin, upgrade) ? "origin" : null;
+  return null;
+}
+export function codespaceRequestFailure(
+  request: CodespaceRequest,
+  origin: string,
+  upgrade = false,
+): BoundaryFailure | null {
+  return (
+    transportFailure(request, origin) ??
+    (codespaceOriginReason(request, origin, upgrade) ? "origin" : null)
+  );
+}
+
+// This is NOT proof of GitHub authentication or port visibility. The server is
+// loopback-only and the owner must retain GitHub's authenticated PRIVATE forward.
+// Local processes can forge headers; they are already inside that trust boundary.
+export function codespaceBackendOriginCheck(
+  request: CodespaceRequest,
+  origin: string,
+  upgrade = false,
+):
+  | "websocket"
+  | "transport"
+  | "method"
+  | "backend-authority"
+  | "forwarding"
+  | "fetch-site"
+  | "fetch-mode-dest"
+  | "resource"
+  | null {
+  if (upgrade) return "websocket";
+  if (transportFailure(request, origin)) return "transport";
+  const { headers, method, url } = request;
+  if (!["GET", "HEAD"].includes(method ?? "")) return "method";
+  const backend = ["localhost:5173", "127.0.0.1:5173", "[::1]:5173"];
+  const host =
+    typeof headers.host === "string" ? headers.host.toLowerCase() : "";
+  const publicHost = new URL(origin).hostname;
+  const backendAuthority = backend.find(
+    (authority) => headers.origin === `http://${authority}`,
+  );
+  // A proxy can rewrite Host to its backend or retain the public authority.
+  // Neither pattern permits an unrelated Host or a different backend port.
+  if (
+    !backendAuthority ||
+    ![backendAuthority, publicHost, `${publicHost}:443`].includes(host)
+  )
+    return "backend-authority";
+  const forwardedHost = headers["x-forwarded-host"];
+  if (
+    typeof forwardedHost !== "string" ||
+    ![publicHost, `${publicHost}:443`].includes(
+      forwardedHost.trim().toLowerCase(),
+    ) ||
+    headers["x-forwarded-proto"] !== "https"
+  )
+    return "forwarding";
+  if (headers["sec-fetch-site"] !== "same-origin") return "fetch-site";
+  const mode = headers["sec-fetch-mode"],
+    dest = headers["sec-fetch-dest"];
+  const valid =
+    (dest === "script" && ["cors", "same-origin"].includes(String(mode))) ||
+    (["worker", "sharedworker"].includes(String(dest)) &&
+      ["cors", "same-origin"].includes(String(mode))) ||
+    (["style", "image", "font"].includes(String(dest)) &&
+      ["cors", "same-origin", "no-cors"].includes(String(mode)));
+  if (!valid) return "fetch-mode-dest";
+  if (!url?.startsWith("/") || url.startsWith("//") || url.includes("#"))
+    return "resource";
+  let path: string;
+  try {
+    path = decodeURIComponent(url.split("?")[0]);
+  } catch {
+    return "resource";
+  }
+  if (
+    path.includes("\\") ||
+    path.startsWith("//") ||
+    [...path].some(
+      (char) => char.charCodeAt(0) <= 32 || char.charCodeAt(0) === 127,
+    ) ||
+    path.split("/").includes("..")
+  )
+    return "resource";
+  // Vite's fs allowlist/denylist still runs. No documents, API routes, health
+  // files or extensionless arbitrary fetches use this compatibility exception.
+  return ["/@vite/client", "/@vite/env"].includes(path) ||
+    /\.(?:[cm]?[jt]sx?|css|wasm|svg|png|jpe?g|ico|woff2?|ttf)$/i.test(path)
+    ? null
+    : "resource";
+}
+
+export function codespaceBackendOriginAllowed(
+  request: CodespaceRequest,
+  origin: string,
+  upgrade = false,
+): boolean {
+  return codespaceBackendOriginCheck(request, origin, upgrade) === null;
 }
 
 // Fixed enums only: never return the received origin, hostname, path or tokens.
@@ -133,7 +229,9 @@ export function codespaceOriginReason(
         ["localhost", "127.0.0.1", "[::1]"].includes(parsed.hostname) &&
         parsed.port === "5173"
       )
-        return "origin-backend";
+        return codespaceBackendOriginAllowed(request, origin, upgrade)
+          ? null
+          : "origin-backend";
       return parsed.protocol === "https:"
         ? "origin-other-https"
         : "origin-other-scheme";

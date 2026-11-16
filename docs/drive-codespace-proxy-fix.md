@@ -1,9 +1,10 @@
 # Codespaces diagnostic proxy fix
 
-**Latest live finding:** the response says `X-Training-HQ-Boundary: origin`.
-That is a different gate from the earlier host reproduction below. See
-[the origin investigation and safe reason-code table](#confirmed-live-origin-rejection-second-investigation).
-The precise live Origin/Fetch Metadata remains unavailable; no value is guessed.
+**Latest live finding:** `X-Training-HQ-Origin-Reason: origin-backend` confirms
+that module requests reach Vite with a loopback Origin. See the
+[constrained backend-Origin compatibility fix](#confirmed-backend-origin-compatibility-fix)
+and exact restart commands below. The fix has **not been verified in a real Codespace**.
+Earlier investigations below are retained as migration/debugging history.
 
 The original middleware used:
 
@@ -131,3 +132,108 @@ remaining gate, not a successful authorization or permission grant. If the live
 page still fails, report **only the enum**, not a HAR or raw headers. Private-port
 visibility, host/forwarded-header checks, CSP, Firebase isolation and drive.file-only
 OAuth remain unchanged. No production setting or deployment was touched.
+
+## Confirmed backend-Origin compatibility fix
+
+The owner subsequently observed `origin-backend` on the live forwarded module
+requests. This confirms that the middleware sees a loopback Origin on port 5173;
+it does not identify which proxy hop rewrote it, the exact loopback spelling or
+the remaining forwarding/Fetch Metadata headers. Previous statements that the live
+Origin class was entirely unknown are historical; it is now known to be backend.
+
+Vite already has `server.origin` set to the computed public HTTPS origin and its
+WebSocket client pinned to public WSS/443. The installed Vite API describes
+server.origin as **the origin for generated asset URLs**, not an incoming-header
+rewrite setting. The boundary runs before module transforms; neither our code nor
+the inspected Vite request handling assigns the incoming Origin to localhost.
+A browser document at the public HTTPS URL would normally send its public Origin
+for CORS module fetches. The backend value is therefore consistent with an upstream
+tunnel/proxy compatibility rewrite; the precise component is **not traced or proven**.
+Changing generated URLs again cannot repair a header already rewritten upstream.
+No undocumented proxy switch, CORS wildcard or incoming-Origin rewrite is used.
+
+References: [Vite server.origin](https://vite.dev/config/server-options#server-origin),
+[GitHub Codespaces forwarding](https://docs.github.com/en/codespaces/developing-in-a-codespace/forwarding-ports-in-your-codespace).
+GitHub documents HTTP/HTTPS forwarding protocol selection; it does not establish
+the complete on-wire Origin behavior for this particular private session. Public
+HTTPS terminates before our plain-HTTP loopback Vite listener. Keep the backend
+forwarding protocol HTTP for that listener; this does not change the public HTTPS URL.
+
+### Narrow compatibility branch
+
+An internal Origin is accepted **only when all checks pass**:
+
+1. The Codespaces-only server is bound to 127.0.0.1:5173, and the socket peer is
+   loopback. Existing raw-header duplication, Host and forwarding validation runs.
+2. Origin is exactly HTTP localhost:5173, 127.0.0.1:5173 or [::1]:5173. Host must
+   match that backend authority, or be the exact retained public Codespaces authority
+   (optionally :443). Unknown hosts and a mismatched loopback Host fail.
+3. X-Forwarded-Host must independently equal the computed public Codespaces host
+   (optionally :443), and X-Forwarded-Proto must be https. A supplied forwarded port
+   must be 443. Supplied RFC Forwarded information must agree. No header chain,
+   duplicate authority or X-Forwarded-Origin hint can substitute for these checks.
+4. Method is explicitly GET/HEAD. Fetch Metadata must say same-origin, with a
+   compatible script/worker/style/image/font destination and read mode. Missing
+   metadata, same-site, cross-site, navigation and general fetch destinations fail.
+5. Only static code/asset extensions and /@vite/client or /@vite/env qualify. Root
+   documents, APIs, raw CSV/FIT files, unsafe paths and unsupported methods do not.
+   Vite's strict filesystem allow/deny checks remain in force afterward.
+6. This exception **never applies to WebSocket upgrades**. HMR still needs the
+   approved public HTTPS Origin and Vite's token. If a live proxy also rewrites HMR
+   Origin, that connection remains refused; this change does not claim to solve it.
+
+No request Origin is overwritten or promoted to a trusted public Origin; CORS still
+returns only the configured public origin. Private forwarding authentication is
+provided by GitHub, **not by these headers**. The server checks loopback transport
+and request consistency; it cannot cryptographically identify a GitHub proxy,
+authenticate a local process or infer the platform's Private/Public setting.
+Local processes inside the Codespace remain trusted. Keep the forward PRIVATE;
+no visibility setting is changed automatically. Do not expose this server through
+another tunnel or public listener. No Cloud, Firebase, Drive or production change.
+
+### Safe response classifications
+
+Accepted rewritten static requests carry
+`X-Training-HQ-Origin-Mode: proxy-backend-static`. A public-Origin or missing-Origin
+request does not falsely receive that marker. Rejected backend-Origin HTTP requests
+retain `origin-backend` and add `X-Training-HQ-Proxy-Check`, a fixed enum:
+`backend-authority`, `forwarding`, `fetch-site`, `fetch-mode-dest`, `resource`,
+`transport`, `method` or `websocket`. Earlier guards may reject first with their
+existing reason. These classifications contain no header values, tokens, names,
+file IDs or private data and are not logged or exported.
+
+### Update and restart the existing Codespace
+
+In its existing browser terminal, press **Ctrl+C** to stop the old server. These
+commands use the existing checkout; they do not clone, reset, force-push or deploy:
+
+```sh
+cd "$(git rev-parse --show-toplevel)"
+git status --short
+git switch feat/hosted-drive-oauth-diagnostic
+git pull --ff-only origin feat/hosted-drive-oauth-diagnostic
+cd web
+npm ci
+npm run dev:drive-codespace
+```
+
+If status shows local edits or fast-forward fails, preserve those edits and resolve
+the checkout state before continuing; do not reset it to make the commands succeed.
+In **Ports**, verify 5173 visibility is **Private**, backend protocol HTTP, and choose
+**Open in Browser** in a top-level tab. Keep the URL's public HTTPS scheme. Complete
+GitHub's private-port sign-in there and reload the exact root with no query/hash.
+Optional read-only visibility inspection from another Codespace terminal:
+
+```sh
+gh codespace ports -c "$CODESPACE_NAME"
+```
+
+Check /main.ts and /@vite/client return 200. If the compatibility branch is used,
+confirm the acceptance marker above. If either still fails, report only the fixed
+boundary/origin/proxy-check codes, not headers, cookies, a HAR or private metadata.
+No OAuth test is performed merely by loading the page.
+
+**Verification boundary:** automated tests use synthetic proxy headers and an actual
+local Vite server/module worker. The implementation has **not** been verified in a
+real authenticated Codespace browser. The owner's earlier live origin-backend result
+is evidence for the old rejection, not evidence that this new fix works live.

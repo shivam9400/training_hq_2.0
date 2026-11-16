@@ -209,3 +209,157 @@ describe("Origin versus browser Fetch Metadata", () => {
     ).toBe("origin");
   });
 });
+
+describe("narrow Codespaces rewritten backend Origin", () => {
+  const proxied = (
+    headers: CodespaceRequest["headers"] = {},
+  ): CodespaceRequest => ({
+    ...request({
+      "x-forwarded-host": `${host}:443`,
+      "x-forwarded-proto": "https",
+      "x-forwarded-port": "443",
+      origin: "http://127.0.0.1:5173",
+      "sec-fetch-site": "same-origin",
+      "sec-fetch-mode": "cors",
+      "sec-fetch-dest": "script",
+      ...headers,
+    }),
+    method: "GET",
+    url: "/main.ts",
+  });
+  it("reproduces origin-backend without the required proxy evidence", () => {
+    const req = request({ origin: "http://127.0.0.1:5173" });
+    expect(codespaceOriginReason(req, origin)).toBe("origin-backend");
+    expect(codespaceRequestFailure(req, origin)).toBe("origin");
+  });
+  it.each(["localhost:5173", "127.0.0.1:5173", "[::1]:5173"])(
+    "accepts a matching backend authority %s only with complete proof",
+    (backend) => {
+      expect(
+        codespaceRequestFailure(
+          proxied({ host: backend, origin: `http://${backend}` }),
+          origin,
+        ),
+      ).toBeNull();
+    },
+  );
+  it.each([
+    "/main.ts",
+    "/@vite/client",
+    "/@vite/env",
+    "/core.ts",
+    "/node_modules/.vite-drive-diagnostic/deps/parser.js?v=synthetic",
+    "/@fs/workspace/synthetic/worker.ts?worker_file&type=module",
+  ])("accepts a read-only module %s", (url) => {
+    expect(codespaceRequestFailure({ ...proxied(), url }, origin)).toBeNull();
+    expect(
+      codespaceRequestFailure({ ...proxied(), url, method: "HEAD" }, origin),
+    ).toBeNull();
+  });
+  it("allows a proxy to retain the exact public Host while preserving forwarding proof", () => {
+    expect(codespaceRequestFailure(proxied({ host }), origin)).toBeNull();
+    expect(
+      codespaceRequestFailure(
+        proxied({ host, "x-forwarded-host": undefined }),
+        origin,
+      ),
+    ).toBe("origin");
+  });
+  it("accepts same-origin stylesheet and worker reads", () => {
+    expect(
+      codespaceRequestFailure(
+        {
+          ...proxied({
+            "sec-fetch-mode": "no-cors",
+            "sec-fetch-dest": "style",
+          }),
+          url: "/style.css",
+        },
+        origin,
+      ),
+    ).toBeNull();
+    expect(
+      codespaceRequestFailure(
+        {
+          ...proxied({
+            "sec-fetch-mode": "same-origin",
+            "sec-fetch-dest": "worker",
+          }),
+          url: "/worker.ts?worker_file&type=module",
+        },
+        origin,
+      ),
+    ).toBeNull();
+  });
+  it.each([
+    { "x-forwarded-host": undefined },
+    { "x-forwarded-host": "evil.example" },
+    { "x-forwarded-host": `${host},evil.example` },
+    { "x-forwarded-host": [host, host] },
+    { "x-forwarded-proto": undefined },
+    { "x-forwarded-proto": "http" },
+    { "x-forwarded-port": "5173" },
+    { forwarded: "proto=https;host=evil.example" },
+    { host: "localhost:5173" },
+    { host: "evil.example" },
+    { origin: "http://evil.example:5173" },
+    { origin: "https://127.0.0.1:5173" },
+    { origin: "http://user@127.0.0.1:5173" },
+    { origin: "null" },
+    { "sec-fetch-site": "cross-site" },
+    { "sec-fetch-site": "same-site" },
+    { "sec-fetch-site": undefined },
+    { "sec-fetch-mode": undefined },
+    { "sec-fetch-mode": "navigate", "sec-fetch-dest": "document" },
+    { "sec-fetch-mode": "no-cors", "sec-fetch-dest": "script" },
+    { "sec-fetch-dest": "empty" },
+    { "sec-fetch-dest": "iframe" },
+    { "x-forwarded-host": undefined, "x-forwarded-origin": origin },
+  ])("rejects forged or incomplete backend-Origin evidence %#", (headers) => {
+    expect(codespaceRequestFailure(proxied(headers), origin)).not.toBeNull();
+  });
+  it.each([
+    "/",
+    "/index.html",
+    "/api/records",
+    "/private.csv",
+    "/private.fit",
+    "/../main.ts",
+    "/%2e%2e/main.ts",
+    "//evil.example/main.ts",
+    "/main.ts#fragment",
+    "/%2f%2fevil.example/main.ts",
+    "/%00main.ts",
+  ])("does not apply the exception to %s", (url) => {
+    expect(codespaceRequestFailure({ ...proxied(), url }, origin)).toBe(
+      "origin",
+    );
+  });
+  it("rejects non-loopback peers, duplicate metadata, unsafe methods and upgrades", () => {
+    expect(
+      codespaceRequestFailure(
+        { ...proxied(), remoteAddress: "192.0.2.1" },
+        origin,
+      ),
+    ).toBe("peer");
+    expect(
+      codespaceRequestFailure(
+        {
+          ...proxied(),
+          rawHeaders: ["X-Forwarded-Host", host, "x-forwarded-host", host],
+        },
+        origin,
+      ),
+    ).toBe("duplicate-header");
+    expect(
+      codespaceRequestFailure({ ...proxied(), method: "POST" }, origin),
+    ).toBe("origin");
+    expect(
+      codespaceRequestFailure(
+        proxied({ "sec-fetch-mode": "websocket", "sec-fetch-dest": "empty" }),
+        origin,
+        true,
+      ),
+    ).toBe("origin");
+  });
+});

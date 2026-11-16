@@ -15,7 +15,7 @@ const proxyHeaders = {
 };
 function handshake(
   token: string,
-  allowed: boolean | "missing",
+  allowed: boolean | "missing" | "backend",
 ): Promise<number> {
   return new Promise((resolve, reject) => {
     const req = httpRequest(`${backend}/?token=${encodeURIComponent(token)}`, {
@@ -23,7 +23,14 @@ function handshake(
         ...proxyHeaders,
         ...(allowed === "missing"
           ? {}
-          : { Origin: allowed ? origin : "https://evil.example" }),
+          : {
+              Origin:
+                allowed === "backend"
+                  ? "http://127.0.0.1:5173"
+                  : allowed
+                    ? origin
+                    : "https://evil.example",
+            }),
         Connection: "Upgrade",
         Upgrade: "websocket",
         "Sec-WebSocket-Version": "13",
@@ -77,6 +84,7 @@ test("actual Vite serves the full module graph through valid proxy headers and r
   expect(await handshake(token!, true)).toBe(101);
   expect(await handshake(token!, false)).toBe(403);
   expect(await handshake(token!, "missing")).toBe(403);
+  expect(await handshake(token!, "backend")).toBe(403);
   for (const headers of [
     { ...proxyHeaders, Host: "evil.example", Origin: origin },
     {
@@ -95,19 +103,29 @@ test("actual Vite serves the full module graph through valid proxy headers and r
     ).toBe(true);
   }
 });
-for (const omitOrigin of [false, true])
-  test(`HTTPS proxy browser loads scripts/imports/worker without Firebase or Google; omit Origin=${omitOrigin}`, async ({
+for (const originMode of ["public", "omitted", "backend"] as const)
+  test(`HTTPS proxy browser loads scripts/imports/worker without Firebase or Google; Origin mode=${originMode}`, async ({
     page,
     context,
   }) => {
     const statuses: { path: string; status: number }[] = [];
     const unexpected: string[] = [];
     const errors: string[] = [];
+    const workerMockSocketErrors: string[] = [];
+    let workerPhase = false;
     let hmrReady = false;
     page.on("console", (message) => {
       if (message.text() === "[vite] connected.") hmrReady = true;
     });
-    page.on("pageerror", (error) => errors.push(error.message));
+    page.on("pageerror", (error) => {
+      // The mocked worker dev-HMR socket can close before opening. Classify only
+      // this EXACT fixture event during the manual worker phase. Real upgrade
+      // authorization is independently tested above; no parser/module error is
+      // ignored, and no application runtime error handling is changed.
+      if (workerPhase && error.message === "WebSocket closed without opened.")
+        workerMockSocketErrors.push(error.message);
+      else errors.push(error.message);
+    });
     await page.route("**/*", async (route) => {
       const req = route.request(),
         url = new URL(req.url());
@@ -148,7 +166,9 @@ for (const omitOrigin of [false, true])
                 : "script",
       });
       delete headers.host;
-      if (omitOrigin) delete headers.origin;
+      if (originMode === "omitted") delete headers.origin;
+      if (originMode === "backend" && resource !== "document")
+        headers.origin = "http://127.0.0.1:5173";
       const response = await route.fetch({
         url: `${backend}${url.pathname}${url.search}`,
         headers,
@@ -157,6 +177,10 @@ for (const omitOrigin of [false, true])
         response.status(),
         `${url.pathname}: ${response.headers()["x-training-hq-origin-reason"] ?? "no boundary reason"}`,
       ).toBe(200);
+      if (originMode === "backend" && resource !== "document")
+        expect(response.headers()["x-training-hq-origin-mode"]).toBe(
+          "proxy-backend-static",
+        );
       statuses.push({ path: url.pathname, status: response.status() });
       await route.fulfill({ response });
     });
@@ -176,6 +200,7 @@ for (const omitOrigin of [false, true])
     await expect(page.locator("#settings-state")).toContainText("missing");
     await expect(page.locator("#connect")).toBeDisabled();
     const workerPath = `/@fs${process.cwd()}/src/services/activities/worker.ts?worker_file&type=module`;
+    workerPhase = true;
     const result = await page.evaluate(
       async ({ workerPath, csv }) => {
         const worker = new Worker(workerPath, { type: "module" });
@@ -231,6 +256,7 @@ for (const omitOrigin of [false, true])
     );
     expect(unexpected).toEqual([]);
     expect(errors).toEqual([]);
+    expect(workerMockSocketErrors.length).toBeLessThanOrEqual(1);
     expect(
       await page.evaluate(() => ({
         storage: localStorage.length + sessionStorage.length,
@@ -327,4 +353,51 @@ test("module GETs without Origin use same-origin Fetch Metadata and failures exp
     expect(response.headers()["x-training-hq-origin-reason"]).toBe(reason);
     expect(await response.text()).not.toContain(value);
   }
+});
+
+test("rewritten backend Origin requires exact authority, HTTPS forwarding and same-origin read-only resources", async ({
+  request,
+}) => {
+  const headers = {
+    ...proxyHeaders,
+    Origin: "http://127.0.0.1:5173",
+    "Sec-Fetch-Site": "same-origin",
+    "Sec-Fetch-Mode": "cors",
+    "Sec-Fetch-Dest": "script",
+  };
+  for (const path of ["/main.ts", "/@vite/client", "/core.ts"]) {
+    const accepted = await request.get(backend + path, { headers });
+    expect(accepted.status()).toBe(200);
+    expect(accepted.headers()["x-training-hq-origin-mode"]).toBe(
+      "proxy-backend-static",
+    );
+    expect(accepted.headers()["access-control-allow-origin"]).toBe(origin);
+    for (const overrides of [
+      { "Sec-Fetch-Site": "cross-site" },
+      { "Sec-Fetch-Site": "same-site" },
+      { "X-Forwarded-Host": `${host},evil.example` },
+      { "X-Forwarded-Proto": "http" },
+      { Origin: "http://evil.example:5173" },
+    ]) {
+      expect(
+        (
+          await request.get(backend + path, {
+            headers: { ...headers, ...overrides },
+          })
+        ).status(),
+      ).toBe(403);
+    }
+  }
+  const unproven = await request.get(`${backend}/main.ts`, {
+    headers: { Host: "127.0.0.1:5173", Origin: "http://127.0.0.1:5173" },
+  });
+  expect(unproven.status()).toBe(403);
+  expect(unproven.headers()["x-training-hq-origin-reason"]).toBe(
+    "origin-backend",
+  );
+  expect(unproven.headers()["x-training-hq-proxy-check"]).toBe("forwarding");
+  expect((await request.post(`${backend}/main.ts`, { headers })).status()).toBe(
+    403,
+  );
+  expect((await request.get(`${backend}/`, { headers })).status()).toBe(403);
 });
