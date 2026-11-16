@@ -62,6 +62,16 @@ is required for the new settings path; existing training loading is independent.
 Account deletion fails closed until configuration cleanup is permitted. No OAuth
 client, production permission, live access or deployment is configured by this PR.
 
+## Browser-only Drive OAuth experiment
+
+For an online experiment without cloning, use the [hosted diagnostic guide](docs/drive-hosted-test-guide.md).
+It provides exact browser-only GitHub and Google Cloud steps for a new temporary
+Pages repository under a **different dedicated owner**, plus a private Codespaces
+fallback. Publication requires explicit manual workflow and environment approval.
+Public replacement-client settings are entered in page memory; no credentials are
+built or committed. The live Training HQ site and Firebase remain untouched.
+Actual Google folder/future-file permissions still require consenting test accounts.
+
 ## Local Drive OAuth test tool
 
 An isolated **development-only** diagnostic is available with

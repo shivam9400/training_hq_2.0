@@ -14,12 +14,16 @@
     "test": "vitest run",
     "test:rules": "node scripts/test-rules.mjs",
     "test:e2e": "playwright test",
-    "format": "prettier --write src e2e scripts drive-diagnostic drive-diagnostic-e2e *.ts *.js index.html public/manifest.webmanifest",
-    "format:check": "prettier --check src e2e scripts drive-diagnostic drive-diagnostic-e2e *.ts *.js index.html public/manifest.webmanifest",
+    "format": "prettier --write src e2e scripts drive-diagnostic drive-diagnostic-e2e drive-hosted-e2e *.ts *.js index.html public/manifest.webmanifest",
+    "format:check": "prettier --check src e2e scripts drive-diagnostic drive-diagnostic-e2e drive-hosted-e2e *.ts *.js index.html public/manifest.webmanifest",
     "dev:drive-test": "vite --config vite.drive-test.config.ts",
     "check:drive-test": "tsc -p tsconfig.drive-test.json",
     "build:drive-test": "npm run check:drive-test && vite build --config vite.drive-test.config.ts",
-    "test:drive-browser": "playwright test --config playwright.drive-test.config.ts"
+    "test:drive-browser": "playwright test --config playwright.drive-test.config.ts",
+    "build:drive-hosted": "npm run check:drive-test && vite build --config vite.drive-hosted.config.ts",
+    "check:drive-hosted-assets": "node scripts/check-drive-hosted-assets.mjs",
+    "dev:drive-codespace": "vite --config vite.drive-codespace.config.ts",
+    "test:drive-hosted-browser": "playwright test --config playwright.drive-hosted.config.ts"
   },
   "dependencies": {
     "@zip.js/zip.js": "2.25.0",

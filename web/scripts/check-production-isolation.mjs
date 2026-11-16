@@ -2,6 +2,9 @@
 import { readdir, readFile } from "node:fs/promises";
 const forbidden = [
   "LOCAL_DRIVE_DIAGNOSTIC",
+  "HOSTED_DRIVE_DIAGNOSTIC",
+  "drive-hosted-dist",
+  "DRIVE_DIAGNOSTIC_SITE_URL",
   "VITE_GOOGLE_DRIVE_TEST_",
   "drive-diagnostic",
   "accounts.google.com/gsi/client",

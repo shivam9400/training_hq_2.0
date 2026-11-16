@@ -140,3 +140,12 @@ deletion removes it before Auth and fails closed if cleanup is denied. Client
 guards and view generations reject stale account results. See drive-folder-settings.md.
 No live OAuth, Picker, Drive listing/download or tokens are enabled. The current
 feasibility evidence and unresolved production gate are in drive-feasibility-decision.md.
+
+## Isolated hosted permission experiment
+
+The [hosted diagnostic](drive-hosted-test-guide.md) is a separate opt-in build and
+manual deployment to a different dedicated GitHub owner. Public client settings,
+tokens and results remain memory-only; no Firebase modules or production service
+worker are included. It does not enable production Drive sync or establish actual
+future-child authorization. Localhost remains supported. No live deployment or
+Google Cloud change is performed automatically.

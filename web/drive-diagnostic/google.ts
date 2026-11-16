@@ -1,4 +1,4 @@
-import { DiagnosticError, SCOPE, ORIGIN, id, object } from "./core";
+import { DiagnosticError, SCOPE, id, object } from "./core";
 type TokenClient = {
   requestAccessToken: (options: { prompt: string }) => void;
 };
@@ -94,7 +94,7 @@ export async function authorize(clientId: string): Promise<unknown> {
   if (!/^[A-Za-z0-9_-]+\.apps\.googleusercontent\.com$/.test(clientId))
     throw new DiagnosticError(
       null,
-      "Set the replacement test Web Client ID in the ignored web/.env.local file.",
+      "Set the replacement test Web Client ID in the diagnostic test settings.",
     );
   await script("https://accounts.google.com/gsi/client");
   const oauth = window.google?.accounts?.oauth2;
@@ -151,7 +151,7 @@ export class PickerBridge {
     if (!key || !/^\d+$/.test(appId))
       throw new DiagnosticError(
         null,
-        "Set a test-project Picker browser API key and numeric project number in ignored local configuration; check Picker API is enabled.",
+        "Set a test-project Picker browser API key and numeric project number; check Picker API is enabled.",
       );
     await script("https://apis.google.com/js/api.js");
     await new Promise<void>((resolve, reject) => {
@@ -188,7 +188,7 @@ export class PickerBridge {
       .setOAuthToken(token)
       .setDeveloperKey(key)
       .setAppId(appId)
-      .setOrigin(ORIGIN)
+      .setOrigin(location.origin)
       .addView(view)
       .setCallback((raw) => {
         const response = object(raw);

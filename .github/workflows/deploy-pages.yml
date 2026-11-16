@@ -41,6 +41,12 @@ jobs:
       - run: npm test
       - name: Type-check and build localhost diagnostic separately
         run: npm run build:drive-test
+      - name: Build isolated hosted diagnostic using public synthetic target only
+        env:
+          DRIVE_DIAGNOSTIC_SITE_URL: https://synthetic-test-owner.github.io/training-hq-drive-test/
+          VITE_GOOGLE_DRIVE_TEST_CLIENT_ID: SYNTHETIC_HOSTED_CREDENTIAL_SENTINEL_CLIENT
+          VITE_GOOGLE_DRIVE_TEST_PICKER_API_KEY: SYNTHETIC_HOSTED_CREDENTIAL_SENTINEL_KEY
+        run: npm run build:drive-hosted && npm run check:drive-hosted-assets
       - run: npm run test:rules
       - name: Build synthetic demo for browser tests
         run: npm run build
@@ -48,6 +54,8 @@ jobs:
       - run: npm run test:e2e
       - name: Test local diagnostic using mocked Google services only
         run: npm run test:drive-browser
+      - name: Test hosted build at mocked HTTPS origin (no deployment or real OAuth)
+        run: npm run test:drive-hosted-browser
       - name: Build deployable frontend
         env:
           VITE_FIREBASE_API_KEY: ${{ vars.VITE_FIREBASE_API_KEY }}

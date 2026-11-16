@@ -27,6 +27,8 @@ export default defineConfig(({ command, mode }) => {
     base: "/",
     define: {
       __DRIVE_TEST_CONFIG__: JSON.stringify({
+        mode: "local",
+        siteUrl: "http://localhost:5173/",
         clientId: env.VITE_GOOGLE_DRIVE_TEST_CLIENT_ID ?? "",
         pickerKey: env.VITE_GOOGLE_DRIVE_TEST_PICKER_API_KEY ?? "",
         appId: env.VITE_GOOGLE_DRIVE_TEST_APP_ID ?? "",

@@ -35,3 +35,6 @@ test-results/
 # Local-only diagnostic output and owner-created synthetic fixtures
 drive-diagnostic-dist/
 drive-test-fixtures/
+
+# Isolated hosted diagnostic output (never production assets)
+drive-hosted-dist/

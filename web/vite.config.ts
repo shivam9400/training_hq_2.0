@@ -16,7 +16,7 @@ export default defineConfig({
             res.end();
             return;
           }
-          if (path.toLowerCase().includes("drive-diagnostic")) {
+          if (/drive-(?:diagnostic|hosted|codespace)/i.test(path)) {
             res.statusCode = 404;
             res.end();
             return;

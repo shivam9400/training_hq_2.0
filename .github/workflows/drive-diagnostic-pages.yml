@@ -1,0 +1,109 @@
+name: Temporary Drive diagnostic Pages (isolated repository only)
+on:
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: 'Reviewed full 40-character source commit SHA containing hosted diagnostic'
+        required: true
+        type: string
+      deploy:
+        description: 'Publish temporary diagnostic after successful build and environment approval'
+        type: boolean
+        default: false
+      approval:
+        description: 'To publish, type DEPLOY TEMPORARY DRIVE DIAGNOSTIC'
+        type: string
+        default: ''
+permissions:
+  contents: read
+concurrency:
+  group: isolated-drive-diagnostic-pages
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pages: read
+    env:
+      SOURCE_REF: ${{ inputs.source_ref }}
+      APPROVED_DIAGNOSTIC_REPOSITORY: ${{ vars.APPROVED_DIAGNOSTIC_REPOSITORY }}
+      DEPLOY_REQUESTED: ${{ inputs.deploy }}
+      DEPLOY_APPROVAL: ${{ inputs.approval }}
+    steps:
+      - name: Refuse production repository and require explicit target/approval
+        shell: bash
+        run: |
+          node --input-type=module <<'JS'
+          const repo = process.env.GITHUB_REPOSITORY;
+          const [owner, name] = repo.split('/');
+          if (owner.toLowerCase() === 'shivam9400' || name !== 'training-hq-drive-test' || process.env.APPROVED_DIAGNOSTIC_REPOSITORY?.toLowerCase() !== repo.toLowerCase() || !/^[a-f0-9]{40}$/.test(process.env.SOURCE_REF ?? '')) throw new Error('Only the approved dedicated test repository under a different owner may run this workflow.');
+          if (process.env.DEPLOY_REQUESTED === 'true' && process.env.DEPLOY_APPROVAL !== 'DEPLOY TEMPORARY DRIVE DIAGNOSTIC') throw new Error('Explicit temporary deployment approval is missing.');
+          JS
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: shivam9400/training_hq_2.0
+          ref: ${{ inputs.source_ref }}
+          path: diagnostic-source
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: diagnostic-source/web/package-lock.json
+      - name: Verify actual Pages configuration
+        working-directory: diagnostic-source/web
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CHECK_PAGES: 'true'
+        run: node --experimental-strip-types scripts/check-drive-hosted-target.ts
+      - name: Build only isolated diagnostic (no OAuth identifiers in build)
+        working-directory: diagnostic-source/web
+        shell: bash
+        run: |
+          npm ci
+          export DRIVE_DIAGNOSTIC_SITE_URL="https://${GITHUB_REPOSITORY_OWNER,,}.github.io/training-hq-drive-test/"
+          npm run build:drive-hosted
+          npm run check:drive-hosted-assets
+      - name: Upload only public diagnostic static assets
+        if: inputs.deploy
+        uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4
+        with:
+          name: drive-oauth-test-pages
+          path: diagnostic-source/web/drive-hosted-dist
+          retention-days: 1
+  publish:
+    if: inputs.deploy
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.publish.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: shivam9400/training_hq_2.0
+          ref: ${{ inputs.source_ref }}
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24'
+      - name: Recheck repository and Pages target immediately before publication
+        working-directory: web
+        env:
+          SOURCE_REF: ${{ inputs.source_ref }}
+          APPROVED_DIAGNOSTIC_REPOSITORY: ${{ vars.APPROVED_DIAGNOSTIC_REPOSITORY }}
+          GH_TOKEN: ${{ github.token }}
+          CHECK_PAGES: 'true'
+        run: node --experimental-strip-types scripts/check-drive-hosted-target.ts
+      - name: Publish approved diagnostic to this test repository only
+        id: publish
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4
+        with:
+          artifact_name: drive-oauth-test-pages
